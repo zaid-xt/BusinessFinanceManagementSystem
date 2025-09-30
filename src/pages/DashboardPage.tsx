@@ -4,6 +4,8 @@ import { Badge } from '@/components/ui/badge';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
 import { DollarSign, TrendingUp, TrendingDown, Users, FileText, Target } from 'lucide-react';
+import { format } from 'date-fns';
+import { useNavigate } from 'react-router-dom';
 
 interface DashboardStats {
   totalIncome: number;
@@ -16,6 +18,7 @@ interface DashboardStats {
 
 const DashboardPage = () => {
   const { user, userRole } = useAuth();
+  const navigate = useNavigate();
   const [stats, setStats] = useState<DashboardStats>({
     totalIncome: 0,
     totalExpenses: 0,
@@ -24,6 +27,7 @@ const DashboardPage = () => {
     pendingInvoices: 0,
     activeBudgets: 0,
   });
+  const [recentTransactions, setRecentTransactions] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
@@ -31,15 +35,23 @@ const DashboardPage = () => {
       try {
         // Fetch financial transactions for current month
         const currentMonth = new Date().toISOString().slice(0, 7);
+        const nextMonth = new Date(new Date().getFullYear(), new Date().getMonth() + 1, 1).toISOString().slice(0, 10);
         
         const { data: transactions } = await supabase
           .from('financial_transactions')
-          .select('type, amount')
+          .select('*')
           .gte('transaction_date', `${currentMonth}-01`)
-          .lt('transaction_date', `${new Date(new Date().getFullYear(), new Date().getMonth() + 1, 1).toISOString().slice(0, 10)}`);
+          .lt('transaction_date', nextMonth);
 
         const income = transactions?.filter(t => t.type === 'income').reduce((sum, t) => sum + Number(t.amount), 0) || 0;
         const expenses = transactions?.filter(t => t.type === 'expense').reduce((sum, t) => sum + Number(t.amount), 0) || 0;
+        
+        // Set recent transactions (last 5)
+        setRecentTransactions(
+          transactions?.sort((a, b) => 
+            new Date(b.transaction_date).getTime() - new Date(a.transaction_date).getTime()
+          ).slice(0, 5) || []
+        );
 
         // Fetch other stats based on user role
         let employeeCount = 0;
@@ -86,6 +98,26 @@ const DashboardPage = () => {
     };
 
     fetchDashboardData();
+
+    // Set up real-time subscription for transaction updates
+    const channel = supabase
+      .channel('dashboard-transactions')
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'financial_transactions'
+        },
+        () => {
+          fetchDashboardData();
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
   }, [userRole]);
 
   const netProfit = stats.totalIncome - stats.totalExpenses;
@@ -192,9 +224,30 @@ const DashboardPage = () => {
             <CardDescription>Latest financial transactions</CardDescription>
           </CardHeader>
           <CardContent>
-            <div className="text-center text-muted-foreground py-8">
-              Transaction history will be displayed here
-            </div>
+            {recentTransactions.length === 0 ? (
+              <div className="text-center text-muted-foreground py-8">
+                No transactions yet
+              </div>
+            ) : (
+              <div className="space-y-4">
+                {recentTransactions.map((transaction) => (
+                  <div key={transaction.id} className="flex items-center justify-between">
+                    <div>
+                      <p className="text-sm font-medium">{transaction.description}</p>
+                      <p className="text-xs text-muted-foreground">
+                        {format(new Date(transaction.transaction_date), 'MMM dd, yyyy')}
+                        {transaction.category && ` • ${transaction.category.replace('_', ' ')}`}
+                      </p>
+                    </div>
+                    <div className={`text-sm font-semibold ${
+                      transaction.type === 'income' ? 'text-green-600' : 'text-red-600'
+                    }`}>
+                      {transaction.type === 'income' ? '+' : '-'}${Number(transaction.amount).toFixed(2)}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
           </CardContent>
         </Card>
 
@@ -205,7 +258,10 @@ const DashboardPage = () => {
           </CardHeader>
           <CardContent className="space-y-4">
             <div className="grid grid-cols-2 gap-4">
-              <div className="p-4 border rounded-lg hover:bg-accent cursor-pointer transition-colors">
+              <div 
+                onClick={() => navigate('/transactions')}
+                className="p-4 border rounded-lg hover:bg-accent cursor-pointer transition-colors"
+              >
                 <div className="text-sm font-medium">Add Transaction</div>
                 <div className="text-xs text-muted-foreground">Record income or expense</div>
               </div>
