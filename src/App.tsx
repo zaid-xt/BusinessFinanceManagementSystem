@@ -9,6 +9,7 @@ import Navigation from "@/components/Navigation";
 import Index from "./pages/Index";
 import AuthPage from "./pages/AuthPage";
 import DashboardPage from "./pages/DashboardPage";
+import TransactionsPage from "./pages/TransactionsPage";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -38,6 +39,16 @@ const App = () => (
                 <ProtectedRoute>
                   <DashboardLayout>
                     <DashboardPage />
+                  </DashboardLayout>
+                </ProtectedRoute>
+              } 
+            />
+            <Route 
+              path="/transactions" 
+              element={
+                <ProtectedRoute>
+                  <DashboardLayout>
+                    <TransactionsPage />
                   </DashboardLayout>
                 </ProtectedRoute>
               } 
