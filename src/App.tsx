@@ -10,6 +10,7 @@ import Index from "./pages/Index";
 import AuthPage from "./pages/AuthPage";
 import DashboardPage from "./pages/DashboardPage";
 import TransactionsPage from "./pages/TransactionsPage";
+import InvoicesPage from "./pages/InvoicesPage";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -49,6 +50,16 @@ const App = () => (
                 <ProtectedRoute>
                   <DashboardLayout>
                     <TransactionsPage />
+                  </DashboardLayout>
+                </ProtectedRoute>
+              } 
+            />
+            <Route 
+              path="/invoices" 
+              element={
+                <ProtectedRoute>
+                  <DashboardLayout>
+                    <InvoicesPage />
                   </DashboardLayout>
                 </ProtectedRoute>
               } 
