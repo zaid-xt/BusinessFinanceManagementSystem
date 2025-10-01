@@ -16,6 +16,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Badge } from "@/components/ui/badge";
 import { format } from "date-fns";
 import { FileText, Download } from "lucide-react";
+import jsPDF from "jspdf";
 
 const invoiceSchema = z.object({
   client_name: z.string().min(1, "Client name is required").max(200),
@@ -171,6 +172,67 @@ export default function InvoicesPage() {
       case 'cancelled': return 'secondary';
       default: return 'outline';
     }
+  };
+
+  const downloadInvoicePDF = (invoice: any) => {
+    const doc = new jsPDF();
+    
+    // Header
+    doc.setFontSize(24);
+    doc.text("INVOICE", 20, 20);
+    
+    // Invoice details
+    doc.setFontSize(12);
+    doc.text(invoice.invoice_number, 20, 35);
+    doc.setFontSize(10);
+    doc.text(`Issue Date: ${format(new Date(invoice.issue_date), 'MMM dd, yyyy')}`, 20, 42);
+    doc.text(`Due Date: ${format(new Date(invoice.due_date), 'MMM dd, yyyy')}`, 20, 49);
+    doc.text(`Status: ${invoice.status.toUpperCase()}`, 20, 56);
+    
+    // Client information
+    doc.setFontSize(12);
+    doc.text("Bill To:", 20, 70);
+    doc.setFontSize(10);
+    doc.text(invoice.client_name, 20, 77);
+    if (invoice.client_email) {
+      doc.text(invoice.client_email, 20, 84);
+    }
+    if (invoice.client_address) {
+      const addressLines = doc.splitTextToSize(invoice.client_address, 80);
+      doc.text(addressLines, 20, invoice.client_email ? 91 : 84);
+    }
+    
+    // Description
+    if (invoice.description) {
+      doc.setFontSize(12);
+      doc.text("Description:", 20, 110);
+      doc.setFontSize(10);
+      const descLines = doc.splitTextToSize(invoice.description, 170);
+      doc.text(descLines, 20, 117);
+    }
+    
+    // Amount breakdown
+    const startY = invoice.description ? 140 : 120;
+    doc.setFontSize(10);
+    doc.text("Amount:", 120, startY);
+    doc.text(`$${Number(invoice.amount).toFixed(2)}`, 170, startY, { align: 'right' });
+    
+    doc.text("Tax:", 120, startY + 7);
+    doc.text(`$${Number(invoice.tax_amount || 0).toFixed(2)}`, 170, startY + 7, { align: 'right' });
+    
+    // Total
+    doc.setFontSize(12);
+    doc.setFont(undefined, 'bold');
+    doc.text("Total:", 120, startY + 17);
+    doc.text(`$${Number(invoice.total_amount).toFixed(2)}`, 170, startY + 17, { align: 'right' });
+    
+    // Save
+    doc.save(`${invoice.invoice_number}.pdf`);
+    
+    toast({
+      title: "Success",
+      description: "Invoice downloaded successfully",
+    });
   };
 
   return (
@@ -368,6 +430,7 @@ export default function InvoicesPage() {
                     <TableHead>Due Date</TableHead>
                     <TableHead>Status</TableHead>
                     <TableHead className="text-right">Total</TableHead>
+                    <TableHead className="text-right">Actions</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -391,6 +454,15 @@ export default function InvoicesPage() {
                       </TableCell>
                       <TableCell className="text-right font-semibold">
                         ${Number(invoice.total_amount).toFixed(2)}
+                      </TableCell>
+                      <TableCell className="text-right">
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => downloadInvoicePDF(invoice)}
+                        >
+                          <Download className="h-4 w-4" />
+                        </Button>
                       </TableCell>
                     </TableRow>
                   ))}
