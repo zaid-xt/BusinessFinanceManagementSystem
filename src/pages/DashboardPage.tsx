@@ -28,6 +28,7 @@ const DashboardPage = () => {
     activeBudgets: 0,
   });
   const [recentTransactions, setRecentTransactions] = useState<any[]>([]);
+  const [recentInvoices, setRecentInvoices] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
@@ -67,8 +68,14 @@ const DashboardPage = () => {
           
           const { data: invoices } = await supabase
             .from('invoices')
-            .select('id')
+            .select('*')
             .in('status', ['draft', 'sent', 'overdue']);
+          
+          const { data: allInvoices } = await supabase
+            .from('invoices')
+            .select('*')
+            .order('created_at', { ascending: false })
+            .limit(5);
           
           const { data: budgets } = await supabase
             .from('budgets')
@@ -80,6 +87,7 @@ const DashboardPage = () => {
           pendingInvoices = invoices?.length || 0;
           activeBudgets = budgets?.length || 0;
           monthlyBudget = budgets?.reduce((sum, b) => sum + Number(b.amount), 0) || 0;
+          setRecentInvoices(allInvoices || []);
         }
 
         setStats({
@@ -99,15 +107,26 @@ const DashboardPage = () => {
 
     fetchDashboardData();
 
-    // Set up real-time subscription for transaction updates
+    // Set up real-time subscription for transaction and invoice updates
     const channel = supabase
-      .channel('dashboard-transactions')
+      .channel('dashboard-updates')
       .on(
         'postgres_changes',
         {
           event: '*',
           schema: 'public',
           table: 'financial_transactions'
+        },
+        () => {
+          fetchDashboardData();
+        }
+      )
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'invoices'
         },
         () => {
           fetchDashboardData();
@@ -271,7 +290,10 @@ const DashboardPage = () => {
               </div>
               {(userRole === 'admin' || userRole === 'finance_staff') && (
                 <>
-                  <div className="p-4 border rounded-lg hover:bg-accent cursor-pointer transition-colors">
+                  <div 
+                    onClick={() => navigate('/invoices')}
+                    className="p-4 border rounded-lg hover:bg-accent cursor-pointer transition-colors"
+                  >
                     <div className="text-sm font-medium">Generate Invoice</div>
                     <div className="text-xs text-muted-foreground">Create new invoice</div>
                   </div>
@@ -285,6 +307,41 @@ const DashboardPage = () => {
           </CardContent>
         </Card>
       </div>
+
+      {(userRole === 'admin' || userRole === 'finance_staff') && recentInvoices.length > 0 && (
+        <Card>
+          <CardHeader>
+            <CardTitle>Recent Invoices</CardTitle>
+            <CardDescription>Latest invoices created</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-4">
+              {recentInvoices.map((invoice) => (
+                <div key={invoice.id} className="flex items-center justify-between border-b pb-3 last:border-0">
+                  <div className="flex-1">
+                    <div className="flex items-center gap-2">
+                      <p className="text-sm font-medium">{invoice.invoice_number}</p>
+                      <Badge variant={
+                        invoice.status === 'paid' ? 'default' : 
+                        invoice.status === 'overdue' ? 'destructive' : 
+                        'secondary'
+                      }>
+                        {invoice.status}
+                      </Badge>
+                    </div>
+                    <p className="text-xs text-muted-foreground">
+                      {invoice.client_name} • Due {format(new Date(invoice.due_date), 'MMM dd, yyyy')}
+                    </p>
+                  </div>
+                  <div className="text-sm font-semibold">
+                    ${Number(invoice.total_amount).toFixed(2)}
+                  </div>
+                </div>
+              ))}
+            </div>
+          </CardContent>
+        </Card>
+      )}
     </div>
   );
 };
