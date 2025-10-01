@@ -8,6 +8,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useAuth } from '@/hooks/useAuth';
 import { Loader2 } from 'lucide-react';
 
@@ -21,6 +22,9 @@ const signUpSchema = z.object({
   password: z.string().min(6, 'Password must be at least 6 characters'),
   firstName: z.string().min(1, 'First name is required'),
   lastName: z.string().min(1, 'Last name is required'),
+  role: z.enum(['admin', 'finance_staff', 'regular_staff'], {
+    required_error: 'Please select a role',
+  }),
 });
 
 type SignInFormData = z.infer<typeof signInSchema>;
@@ -50,7 +54,7 @@ const AuthPage = () => {
 
   const onSignUp = async (data: SignUpFormData) => {
     setIsLoading(true);
-    const { error } = await signUp(data.email, data.password, data.firstName, data.lastName);
+    const { error } = await signUp(data.email, data.password, data.firstName, data.lastName, data.role);
     if (!error) {
       // User will be redirected after email verification
     }
@@ -170,6 +174,25 @@ const AuthPage = () => {
                   {signUpForm.formState.errors.password && (
                     <p className="text-sm text-destructive">
                       {signUpForm.formState.errors.password.message}
+                    </p>
+                  )}
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="role">Role</Label>
+                  <Select onValueChange={(value) => signUpForm.setValue('role', value as any)}>
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select your role" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="admin">Admin</SelectItem>
+                      <SelectItem value="finance_staff">Finance Staff</SelectItem>
+                      <SelectItem value="regular_staff">Regular Staff</SelectItem>
+                    </SelectContent>
+                  </Select>
+                  {signUpForm.formState.errors.role && (
+                    <p className="text-sm text-destructive">
+                      {signUpForm.formState.errors.role.message}
                     </p>
                   )}
                 </div>
