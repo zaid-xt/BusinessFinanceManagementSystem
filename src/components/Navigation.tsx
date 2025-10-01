@@ -37,15 +37,15 @@ const Navigation = () => {
       roles: ['admin', 'finance_staff', 'regular_staff'],
     },
     {
-      name: 'Payroll',
-      href: '/payroll',
-      icon: Users,
-      roles: ['admin', 'finance_staff'],
-    },
-    {
       name: 'Invoices',
       href: '/invoices',
       icon: FileText,
+      roles: ['admin', 'finance_staff'],
+    },
+    {
+      name: 'Payroll',
+      href: '/payroll',
+      icon: Users,
       roles: ['admin', 'finance_staff'],
     },
     {
