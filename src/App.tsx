@@ -57,7 +57,7 @@ const App = () => (
             <Route 
               path="/invoices" 
               element={
-                <ProtectedRoute>
+                <ProtectedRoute requiredRole={['admin', 'finance_staff']}>
                   <DashboardLayout>
                     <InvoicesPage />
                   </DashboardLayout>
