@@ -13,9 +13,11 @@ import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { format } from "date-fns";
-import { Pencil, Trash2, Plus } from "lucide-react";
+import { Pencil, Trash2, Plus, FolderPlus } from "lucide-react";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
+import { Textarea } from "@/components/ui/textarea";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
 const budgetSchema = z.object({
   name: z.string().min(1, "Name is required").max(100),
@@ -34,7 +36,15 @@ const budgetSchema = z.object({
   path: ["department_id"],
 });
 
+const projectSchema = z.object({
+  name: z.string().min(1, "Project name is required").max(100),
+  description: z.string().max(500).optional(),
+  start_date: z.string().optional(),
+  end_date: z.string().optional(),
+});
+
 type BudgetFormData = z.infer<typeof budgetSchema>;
+type ProjectFormData = z.infer<typeof projectSchema>;
 
 interface Budget {
   id: string;
@@ -58,6 +68,8 @@ export default function BudgetsPage() {
   const [editingBudget, setEditingBudget] = useState<Budget | null>(null);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [budgetToDelete, setBudgetToDelete] = useState<string | null>(null);
+  const [projectDialogOpen, setProjectDialogOpen] = useState(false);
+  const [editingProject, setEditingProject] = useState<any>(null);
 
   const form = useForm<BudgetFormData>({
     resolver: zodResolver(budgetSchema),
@@ -70,6 +82,16 @@ export default function BudgetsPage() {
     },
   });
 
+  const projectForm = useForm<ProjectFormData>({
+    resolver: zodResolver(projectSchema),
+    defaultValues: {
+      name: "",
+      description: "",
+      start_date: "",
+      end_date: "",
+    },
+  });
+
   useEffect(() => {
     fetchData();
   }, []);
@@ -79,7 +101,7 @@ export default function BudgetsPage() {
       const [budgetsRes, departmentsRes, projectsRes] = await Promise.all([
         supabase.from('budgets').select('*').order('period_start', { ascending: false }),
         supabase.from('departments').select('id, name'),
-        supabase.from('projects').select('id, name'),
+        supabase.from('projects').select('*'),
       ]);
 
       if (budgetsRes.error) throw budgetsRes.error;
@@ -214,6 +236,90 @@ export default function BudgetsPage() {
     }
   };
 
+  const onProjectSubmit = async (data: ProjectFormData) => {
+    try {
+      const projectData = {
+        name: data.name,
+        description: data.description || null,
+        start_date: data.start_date || null,
+        end_date: data.end_date || null,
+      };
+
+      if (editingProject) {
+        const { error } = await supabase
+          .from('projects')
+          .update(projectData)
+          .eq('id', editingProject.id);
+
+        if (error) throw error;
+
+        toast({
+          title: "Success",
+          description: "Project updated successfully",
+        });
+      } else {
+        const { error } = await supabase
+          .from('projects')
+          .insert(projectData);
+
+        if (error) throw error;
+
+        toast({
+          title: "Success",
+          description: "Project created successfully",
+        });
+      }
+
+      projectForm.reset();
+      setEditingProject(null);
+      setProjectDialogOpen(false);
+      fetchData();
+    } catch (error) {
+      console.error('Error saving project:', error);
+      toast({
+        title: "Error",
+        description: "Failed to save project",
+        variant: "destructive",
+      });
+    }
+  };
+
+  const handleEditProject = (project: any) => {
+    setEditingProject(project);
+    projectForm.reset({
+      name: project.name,
+      description: project.description || "",
+      start_date: project.start_date || "",
+      end_date: project.end_date || "",
+    });
+    setProjectDialogOpen(true);
+  };
+
+  const handleDeleteProject = async (projectId: string) => {
+    try {
+      const { error } = await supabase
+        .from('projects')
+        .delete()
+        .eq('id', projectId);
+
+      if (error) throw error;
+
+      toast({
+        title: "Success",
+        description: "Project deleted successfully",
+      });
+
+      fetchData();
+    } catch (error) {
+      console.error('Error deleting project:', error);
+      toast({
+        title: "Error",
+        description: "Failed to delete project",
+        variant: "destructive",
+      });
+    }
+  };
+
   const budgetType = form.watch("type");
 
   const getUtilizationColor = (percentage: number) => {
@@ -229,255 +335,420 @@ export default function BudgetsPage() {
           <h1 className="text-3xl font-bold">Budget Management</h1>
           <p className="text-muted-foreground">Create and manage budgets for departments and projects</p>
         </div>
-        <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
-          <DialogTrigger asChild>
-            <Button onClick={() => {
-              setEditingBudget(null);
-              form.reset();
-            }}>
-              <Plus className="h-4 w-4 mr-2" />
-              Create Budget
-            </Button>
-          </DialogTrigger>
-          <DialogContent className="max-w-2xl">
-            <DialogHeader>
-              <DialogTitle>{editingBudget ? "Edit Budget" : "Create New Budget"}</DialogTitle>
-              <DialogDescription>
-                Set budget limits for departments or projects
-              </DialogDescription>
-            </DialogHeader>
-            <Form {...form}>
-              <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
-                <FormField
-                  control={form.control}
-                  name="name"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Budget Name</FormLabel>
-                      <FormControl>
-                        <Input placeholder="Q1 Marketing Budget" {...field} />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
+        <div className="flex gap-2">
+          <Dialog open={projectDialogOpen} onOpenChange={setProjectDialogOpen}>
+            <DialogTrigger asChild>
+              <Button variant="outline" onClick={() => {
+                setEditingProject(null);
+                projectForm.reset();
+              }}>
+                <FolderPlus className="h-4 w-4 mr-2" />
+                New Project
+              </Button>
+            </DialogTrigger>
+            <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto bg-background">
+              <DialogHeader>
+                <DialogTitle>{editingProject ? "Edit Project" : "Create New Project"}</DialogTitle>
+                <DialogDescription>
+                  Add project details including name, description, and timeline
+                </DialogDescription>
+              </DialogHeader>
+              <Form {...projectForm}>
+                <form onSubmit={projectForm.handleSubmit(onProjectSubmit)} className="space-y-4">
+                  <FormField
+                    control={projectForm.control}
+                    name="name"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Project Name</FormLabel>
+                        <FormControl>
+                          <Input placeholder="Website Redesign" {...field} />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+
+                  <FormField
+                    control={projectForm.control}
+                    name="description"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Description</FormLabel>
+                        <FormControl>
+                          <Textarea placeholder="Project description and objectives" {...field} />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+
+                  <div className="grid grid-cols-2 gap-4">
+                    <FormField
+                      control={projectForm.control}
+                      name="start_date"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Start Date</FormLabel>
+                          <FormControl>
+                            <Input type="date" {...field} />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+
+                    <FormField
+                      control={projectForm.control}
+                      name="end_date"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>End Date</FormLabel>
+                          <FormControl>
+                            <Input type="date" {...field} />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                  </div>
+
+                  <div className="flex justify-end gap-2">
+                    <Button type="button" variant="outline" onClick={() => setProjectDialogOpen(false)}>
+                      Cancel
+                    </Button>
+                    <Button type="submit">
+                      {editingProject ? "Update" : "Create"} Project
+                    </Button>
+                  </div>
+                </form>
+              </Form>
+            </DialogContent>
+          </Dialog>
+
+          <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
+            <DialogTrigger asChild>
+              <Button onClick={() => {
+                setEditingBudget(null);
+                form.reset();
+              }}>
+                <Plus className="h-4 w-4 mr-2" />
+                Create Budget
+              </Button>
+            </DialogTrigger>
+            <DialogContent className="max-w-2xl bg-background">
+              <DialogHeader>
+                <DialogTitle>{editingBudget ? "Edit Budget" : "Create New Budget"}</DialogTitle>
+                <DialogDescription>
+                  Set budget limits for departments or projects
+                </DialogDescription>
+              </DialogHeader>
+              <Form {...form}>
+                <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
+                  <FormField
+                    control={form.control}
+                    name="name"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Budget Name</FormLabel>
+                        <FormControl>
+                          <Input placeholder="Q1 Marketing Budget" {...field} />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+
+                  <div className="grid grid-cols-2 gap-4">
+                    <FormField
+                      control={form.control}
+                      name="amount"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Budget Amount</FormLabel>
+                          <FormControl>
+                            <Input type="number" step="0.01" placeholder="10000.00" {...field} />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+
+                    <FormField
+                      control={form.control}
+                      name="type"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Budget Type</FormLabel>
+                          <Select onValueChange={field.onChange} value={field.value}>
+                            <FormControl>
+                              <SelectTrigger>
+                                <SelectValue placeholder="Select type" />
+                              </SelectTrigger>
+                            </FormControl>
+                            <SelectContent className="bg-background">
+                              <SelectItem value="department">Department</SelectItem>
+                              <SelectItem value="project">Project</SelectItem>
+                            </SelectContent>
+                          </Select>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-4">
+                    <FormField
+                      control={form.control}
+                      name="period_start"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Start Date</FormLabel>
+                          <FormControl>
+                            <Input type="date" {...field} />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+
+                    <FormField
+                      control={form.control}
+                      name="period_end"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>End Date</FormLabel>
+                          <FormControl>
+                            <Input type="date" {...field} />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                  </div>
+
+                  {budgetType === "department" && (
+                    <FormField
+                      control={form.control}
+                      name="department_id"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Department</FormLabel>
+                          <Select onValueChange={field.onChange} value={field.value}>
+                            <FormControl>
+                              <SelectTrigger>
+                                <SelectValue placeholder="Select department" />
+                              </SelectTrigger>
+                            </FormControl>
+                            <SelectContent className="bg-background">
+                              {departments.map((dept) => (
+                                <SelectItem key={dept.id} value={dept.id}>
+                                  {dept.name}
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
                   )}
-                />
 
-                <div className="grid grid-cols-2 gap-4">
-                  <FormField
-                    control={form.control}
-                    name="amount"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Budget Amount</FormLabel>
-                        <FormControl>
-                          <Input type="number" step="0.01" placeholder="10000.00" {...field} />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
+                  {budgetType === "project" && (
+                    <FormField
+                      control={form.control}
+                      name="project_id"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Project</FormLabel>
+                          <Select onValueChange={field.onChange} value={field.value}>
+                            <FormControl>
+                              <SelectTrigger>
+                                <SelectValue placeholder="Select project" />
+                              </SelectTrigger>
+                            </FormControl>
+                            <SelectContent className="bg-background">
+                              {projects.map((project) => (
+                                <SelectItem key={project.id} value={project.id}>
+                                  {project.name}
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                  )}
 
-                  <FormField
-                    control={form.control}
-                    name="type"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Budget Type</FormLabel>
-                        <Select onValueChange={field.onChange} value={field.value}>
-                          <FormControl>
-                            <SelectTrigger>
-                              <SelectValue placeholder="Select type" />
-                            </SelectTrigger>
-                          </FormControl>
-                          <SelectContent>
-                            <SelectItem value="department">Department</SelectItem>
-                            <SelectItem value="project">Project</SelectItem>
-                          </SelectContent>
-                        </Select>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-                </div>
-
-                <div className="grid grid-cols-2 gap-4">
-                  <FormField
-                    control={form.control}
-                    name="period_start"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Start Date</FormLabel>
-                        <FormControl>
-                          <Input type="date" {...field} />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-
-                  <FormField
-                    control={form.control}
-                    name="period_end"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>End Date</FormLabel>
-                        <FormControl>
-                          <Input type="date" {...field} />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-                </div>
-
-                {budgetType === "department" && (
-                  <FormField
-                    control={form.control}
-                    name="department_id"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Department</FormLabel>
-                        <Select onValueChange={field.onChange} value={field.value}>
-                          <FormControl>
-                            <SelectTrigger>
-                              <SelectValue placeholder="Select department" />
-                            </SelectTrigger>
-                          </FormControl>
-                          <SelectContent>
-                            {departments.map((dept) => (
-                              <SelectItem key={dept.id} value={dept.id}>
-                                {dept.name}
-                              </SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-                )}
-
-                {budgetType === "project" && (
-                  <FormField
-                    control={form.control}
-                    name="project_id"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Project</FormLabel>
-                        <Select onValueChange={field.onChange} value={field.value}>
-                          <FormControl>
-                            <SelectTrigger>
-                              <SelectValue placeholder="Select project" />
-                            </SelectTrigger>
-                          </FormControl>
-                          <SelectContent>
-                            {projects.map((project) => (
-                              <SelectItem key={project.id} value={project.id}>
-                                {project.name}
-                              </SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-                )}
-
-                <div className="flex justify-end gap-2">
-                  <Button type="button" variant="outline" onClick={() => setDialogOpen(false)}>
-                    Cancel
-                  </Button>
-                  <Button type="submit">
-                    {editingBudget ? "Update" : "Create"} Budget
-                  </Button>
-                </div>
-              </form>
-            </Form>
-          </DialogContent>
-        </Dialog>
+                  <div className="flex justify-end gap-2">
+                    <Button type="button" variant="outline" onClick={() => setDialogOpen(false)}>
+                      Cancel
+                    </Button>
+                    <Button type="submit">
+                      {editingBudget ? "Update" : "Create"} Budget
+                    </Button>
+                  </div>
+                </form>
+              </Form>
+            </DialogContent>
+          </Dialog>
+        </div>
       </div>
 
-      <Card>
-        <CardHeader>
-          <CardTitle>Active Budgets</CardTitle>
-          <CardDescription>Track budget utilization across departments and projects</CardDescription>
-        </CardHeader>
-        <CardContent>
-          {isLoading ? (
-            <div className="text-center py-8">Loading budgets...</div>
-          ) : budgets.length === 0 ? (
-            <div className="text-center text-muted-foreground py-8">No budgets created yet</div>
-          ) : (
-            <div className="overflow-x-auto">
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>Budget Name</TableHead>
-                    <TableHead>Period</TableHead>
-                    <TableHead>Type</TableHead>
-                    <TableHead className="text-right">Amount</TableHead>
-                    <TableHead className="text-right">Spent</TableHead>
-                    <TableHead className="text-right">Remaining</TableHead>
-                    <TableHead className="text-right">Utilization</TableHead>
-                    <TableHead className="text-right">Actions</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {budgets.map((budget) => {
-                    const spent = budget.actual_expenses || 0;
-                    const remaining = Number(budget.amount) - spent;
-                    const utilization = (spent / Number(budget.amount)) * 100;
+      <Tabs defaultValue="budgets" className="w-full">
+        <TabsList>
+          <TabsTrigger value="budgets">Budgets</TabsTrigger>
+          <TabsTrigger value="projects">Projects</TabsTrigger>
+        </TabsList>
 
-                    return (
-                      <TableRow key={budget.id}>
-                        <TableCell className="font-medium">{budget.name}</TableCell>
-                        <TableCell>
-                          {format(new Date(budget.period_start), 'MMM dd')} - {format(new Date(budget.period_end), 'MMM dd, yyyy')}
-                        </TableCell>
-                        <TableCell>
-                          <Badge variant="outline">
-                            {budget.department_id ? "Department" : "Project"}
-                          </Badge>
-                        </TableCell>
-                        <TableCell className="text-right">${Number(budget.amount).toLocaleString()}</TableCell>
-                        <TableCell className="text-right text-red-600">${spent.toLocaleString()}</TableCell>
-                        <TableCell className={`text-right ${remaining >= 0 ? 'text-green-600' : 'text-red-600'}`}>
-                          ${remaining.toLocaleString()}
-                        </TableCell>
-                        <TableCell className={`text-right font-semibold ${getUtilizationColor(utilization)}`}>
-                          {utilization.toFixed(1)}%
-                        </TableCell>
-                        <TableCell className="text-right">
-                          <div className="flex justify-end gap-2">
-                            <Button
-                              variant="ghost"
-                              size="icon"
-                              onClick={() => handleEdit(budget)}
-                            >
-                              <Pencil className="h-4 w-4" />
-                            </Button>
-                            <Button
-                              variant="ghost"
-                              size="icon"
-                              onClick={() => {
-                                setBudgetToDelete(budget.id);
-                                setDeleteDialogOpen(true);
-                              }}
-                            >
-                              <Trash2 className="h-4 w-4" />
-                            </Button>
-                          </div>
-                        </TableCell>
+        <TabsContent value="budgets" className="space-y-4">
+          <Card>
+            <CardHeader>
+              <CardTitle>Active Budgets</CardTitle>
+              <CardDescription>Track budget utilization across departments and projects</CardDescription>
+            </CardHeader>
+            <CardContent>
+              {isLoading ? (
+                <div className="text-center py-8">Loading budgets...</div>
+              ) : budgets.length === 0 ? (
+                <div className="text-center text-muted-foreground py-8">No budgets created yet</div>
+              ) : (
+                <div className="overflow-x-auto">
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead>Budget Name</TableHead>
+                        <TableHead>Period</TableHead>
+                        <TableHead>Type</TableHead>
+                        <TableHead className="text-right">Amount</TableHead>
+                        <TableHead className="text-right">Spent</TableHead>
+                        <TableHead className="text-right">Remaining</TableHead>
+                        <TableHead className="text-right">Utilization</TableHead>
+                        <TableHead className="text-right">Actions</TableHead>
                       </TableRow>
-                    );
-                  })}
-                </TableBody>
-              </Table>
-            </div>
-          )}
-        </CardContent>
-      </Card>
+                    </TableHeader>
+                    <TableBody>
+                      {budgets.map((budget) => {
+                        const spent = budget.actual_expenses || 0;
+                        const remaining = Number(budget.amount) - spent;
+                        const utilization = (spent / Number(budget.amount)) * 100;
+
+                        return (
+                          <TableRow key={budget.id}>
+                            <TableCell className="font-medium">{budget.name}</TableCell>
+                            <TableCell>
+                              {format(new Date(budget.period_start), 'MMM dd')} - {format(new Date(budget.period_end), 'MMM dd, yyyy')}
+                            </TableCell>
+                            <TableCell>
+                              <Badge variant="outline">
+                                {budget.department_id ? "Department" : "Project"}
+                              </Badge>
+                            </TableCell>
+                            <TableCell className="text-right">${Number(budget.amount).toLocaleString()}</TableCell>
+                            <TableCell className="text-right text-red-600">${spent.toLocaleString()}</TableCell>
+                            <TableCell className={`text-right ${remaining >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+                              ${remaining.toLocaleString()}
+                            </TableCell>
+                            <TableCell className={`text-right font-semibold ${getUtilizationColor(utilization)}`}>
+                              {utilization.toFixed(1)}%
+                            </TableCell>
+                            <TableCell className="text-right">
+                              <div className="flex justify-end gap-2">
+                                <Button
+                                  variant="ghost"
+                                  size="icon"
+                                  onClick={() => handleEdit(budget)}
+                                >
+                                  <Pencil className="h-4 w-4" />
+                                </Button>
+                                <Button
+                                  variant="ghost"
+                                  size="icon"
+                                  onClick={() => {
+                                    setBudgetToDelete(budget.id);
+                                    setDeleteDialogOpen(true);
+                                  }}
+                                >
+                                  <Trash2 className="h-4 w-4" />
+                                </Button>
+                              </div>
+                            </TableCell>
+                          </TableRow>
+                        );
+                      })}
+                    </TableBody>
+                  </Table>
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        <TabsContent value="projects">
+          <Card>
+            <CardHeader>
+              <CardTitle>Projects</CardTitle>
+              <CardDescription>Manage your projects and their details</CardDescription>
+            </CardHeader>
+            <CardContent>
+              {isLoading ? (
+                <div className="text-center py-8">Loading projects...</div>
+              ) : projects.length === 0 ? (
+                <div className="text-center text-muted-foreground py-8">No projects created yet</div>
+              ) : (
+                <div className="overflow-x-auto">
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead>Project Name</TableHead>
+                        <TableHead>Description</TableHead>
+                        <TableHead>Start Date</TableHead>
+                        <TableHead>End Date</TableHead>
+                        <TableHead className="text-right">Actions</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {projects.map((project) => (
+                        <TableRow key={project.id}>
+                          <TableCell className="font-medium">{project.name}</TableCell>
+                          <TableCell className="max-w-xs truncate">
+                            {project.description || "-"}
+                          </TableCell>
+                          <TableCell>
+                            {project.start_date ? format(new Date(project.start_date), 'MMM dd, yyyy') : "-"}
+                          </TableCell>
+                          <TableCell>
+                            {project.end_date ? format(new Date(project.end_date), 'MMM dd, yyyy') : "-"}
+                          </TableCell>
+                          <TableCell className="text-right">
+                            <div className="flex justify-end gap-2">
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                onClick={() => handleEditProject(project)}
+                              >
+                                <Pencil className="h-4 w-4" />
+                              </Button>
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                onClick={() => handleDeleteProject(project.id)}
+                              >
+                                <Trash2 className="h-4 w-4" />
+                              </Button>
+                            </div>
+                          </TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        </TabsContent>
+      </Tabs>
 
       <AlertDialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
         <AlertDialogContent>
