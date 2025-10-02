@@ -11,6 +11,7 @@ import AuthPage from "./pages/AuthPage";
 import DashboardPage from "./pages/DashboardPage";
 import TransactionsPage from "./pages/TransactionsPage";
 import InvoicesPage from "./pages/InvoicesPage";
+import BudgetsPage from "./pages/BudgetsPage";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -60,6 +61,16 @@ const App = () => (
                 <ProtectedRoute requiredRole={['admin', 'finance_staff']}>
                   <DashboardLayout>
                     <InvoicesPage />
+                  </DashboardLayout>
+                </ProtectedRoute>
+              } 
+            />
+            <Route 
+              path="/budgets" 
+              element={
+                <ProtectedRoute>
+                  <DashboardLayout>
+                    <BudgetsPage />
                   </DashboardLayout>
                 </ProtectedRoute>
               } 
