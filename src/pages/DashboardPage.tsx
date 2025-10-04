@@ -162,7 +162,7 @@ const DashboardPage = () => {
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold text-green-600">
-              ${stats.totalIncome.toLocaleString()}
+              Rs {stats.totalIncome.toLocaleString()}
             </div>
             <p className="text-xs text-muted-foreground">This month</p>
           </CardContent>
@@ -175,7 +175,7 @@ const DashboardPage = () => {
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold text-red-600">
-              ${stats.totalExpenses.toLocaleString()}
+              Rs {stats.totalExpenses.toLocaleString()}
             </div>
             <p className="text-xs text-muted-foreground">This month</p>
           </CardContent>
@@ -188,7 +188,7 @@ const DashboardPage = () => {
           </CardHeader>
           <CardContent>
             <div className={`text-2xl font-bold ${netProfit >= 0 ? 'text-green-600' : 'text-red-600'}`}>
-              ${netProfit.toLocaleString()}
+              Rs {netProfit.toLocaleString()}
             </div>
             <p className="text-xs text-muted-foreground">This month</p>
           </CardContent>
@@ -228,7 +228,7 @@ const DashboardPage = () => {
                   {budgetUtilization.toFixed(1)}%
                 </div>
                 <p className="text-xs text-muted-foreground">
-                  ${stats.totalExpenses.toLocaleString()} of ${stats.monthlyBudget.toLocaleString()}
+                  Rs {stats.totalExpenses.toLocaleString()} of Rs {stats.monthlyBudget.toLocaleString()}
                 </p>
               </CardContent>
             </Card>

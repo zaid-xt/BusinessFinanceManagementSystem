@@ -215,16 +215,16 @@ export default function InvoicesPage() {
     const startY = invoice.description ? 140 : 120;
     doc.setFontSize(10);
     doc.text("Amount:", 120, startY);
-    doc.text(`$${Number(invoice.amount).toFixed(2)}`, 170, startY, { align: 'right' });
+    doc.text(`Rs ${Number(invoice.amount).toFixed(2)}`, 170, startY, { align: 'right' });
     
     doc.text("Tax:", 120, startY + 7);
-    doc.text(`$${Number(invoice.tax_amount || 0).toFixed(2)}`, 170, startY + 7, { align: 'right' });
+    doc.text(`Rs ${Number(invoice.tax_amount || 0).toFixed(2)}`, 170, startY + 7, { align: 'right' });
     
     // Total
     doc.setFontSize(12);
     doc.setFont(undefined, 'bold');
     doc.text("Total:", 120, startY + 17);
-    doc.text(`$${Number(invoice.total_amount).toFixed(2)}`, 170, startY + 17, { align: 'right' });
+    doc.text(`Rs ${Number(invoice.total_amount).toFixed(2)}`, 170, startY + 17, { align: 'right' });
     
     // Save
     doc.save(`${invoice.invoice_number}.pdf`);
@@ -343,7 +343,7 @@ export default function InvoicesPage() {
                 <div className="space-y-2">
                   <Label>Total Amount</Label>
                   <div className="h-10 flex items-center px-3 border rounded-md bg-muted font-semibold">
-                    ${calculatedTotal}
+                    Rs {calculatedTotal}
                   </div>
                 </div>
               </div>
@@ -453,7 +453,7 @@ export default function InvoicesPage() {
                         </Badge>
                       </TableCell>
                       <TableCell className="text-right font-semibold">
-                        ${Number(invoice.total_amount).toFixed(2)}
+                        Rs {Number(invoice.total_amount).toFixed(2)}
                       </TableCell>
                       <TableCell className="text-right">
                         <Button

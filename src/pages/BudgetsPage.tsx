@@ -645,10 +645,10 @@ export default function BudgetsPage() {
                                 {budget.department_id ? "Department" : "Project"}
                               </Badge>
                             </TableCell>
-                            <TableCell className="text-right">${Number(budget.amount).toLocaleString()}</TableCell>
-                            <TableCell className="text-right text-red-600">${spent.toLocaleString()}</TableCell>
+                            <TableCell className="text-right">Rs {Number(budget.amount).toLocaleString()}</TableCell>
+                            <TableCell className="text-right text-red-600">Rs {spent.toLocaleString()}</TableCell>
                             <TableCell className={`text-right ${remaining >= 0 ? 'text-green-600' : 'text-red-600'}`}>
-                              ${remaining.toLocaleString()}
+                              Rs {remaining.toLocaleString()}
                             </TableCell>
                             <TableCell className={`text-right font-semibold ${getUtilizationColor(utilization)}`}>
                               {utilization.toFixed(1)}%
