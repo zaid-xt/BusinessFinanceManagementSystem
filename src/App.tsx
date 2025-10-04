@@ -12,6 +12,7 @@ import DashboardPage from "./pages/DashboardPage";
 import TransactionsPage from "./pages/TransactionsPage";
 import InvoicesPage from "./pages/InvoicesPage";
 import BudgetsPage from "./pages/BudgetsPage";
+import PayrollPage from "./pages/PayrollPage";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -71,6 +72,16 @@ const App = () => (
                 <ProtectedRoute>
                   <DashboardLayout>
                     <BudgetsPage />
+                  </DashboardLayout>
+                </ProtectedRoute>
+              } 
+            />
+            <Route 
+              path="/payroll" 
+              element={
+                <ProtectedRoute requiredRole={['admin', 'finance_staff']}>
+                  <DashboardLayout>
+                    <PayrollPage />
                   </DashboardLayout>
                 </ProtectedRoute>
               } 
