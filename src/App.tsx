@@ -13,6 +13,7 @@ import TransactionsPage from "./pages/TransactionsPage";
 import InvoicesPage from "./pages/InvoicesPage";
 import BudgetsPage from "./pages/BudgetsPage";
 import PayrollPage from "./pages/PayrollPage";
+import ReportsPage from "./pages/ReportsPage";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -82,6 +83,16 @@ const App = () => (
                 <ProtectedRoute requiredRole={['admin', 'finance_staff']}>
                   <DashboardLayout>
                     <PayrollPage />
+                  </DashboardLayout>
+                </ProtectedRoute>
+              } 
+            />
+            <Route 
+              path="/reports" 
+              element={
+                <ProtectedRoute requiredRole={['admin', 'finance_staff']}>
+                  <DashboardLayout>
+                    <ReportsPage />
                   </DashboardLayout>
                 </ProtectedRoute>
               } 
