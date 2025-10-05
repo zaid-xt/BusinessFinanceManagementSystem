@@ -13,7 +13,7 @@ import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { format } from "date-fns";
-import { Pencil, Trash2, Plus, FolderPlus } from "lucide-react";
+import { Pencil, Trash2, Plus, FolderPlus, Wrench, DollarSign } from "lucide-react";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { Textarea } from "@/components/ui/textarea";
@@ -43,8 +43,16 @@ const projectSchema = z.object({
   end_date: z.string().optional(),
 });
 
+const serviceSchema = z.object({
+  service_name: z.string().min(1, "Service name is required").max(100),
+  description: z.string().max(500).optional(),
+  estimated_cost: z.string().min(1, "Estimated cost is required").refine(val => !isNaN(Number(val)) && Number(val) > 0, "Cost must be a positive number"),
+  status: z.enum(["planned", "in_progress", "completed"]),
+});
+
 type BudgetFormData = z.infer<typeof budgetSchema>;
 type ProjectFormData = z.infer<typeof projectSchema>;
+type ServiceFormData = z.infer<typeof serviceSchema>;
 
 interface Budget {
   id: string;
@@ -70,6 +78,9 @@ export default function BudgetsPage() {
   const [budgetToDelete, setBudgetToDelete] = useState<string | null>(null);
   const [projectDialogOpen, setProjectDialogOpen] = useState(false);
   const [editingProject, setEditingProject] = useState<any>(null);
+  const [serviceDialogOpen, setServiceDialogOpen] = useState(false);
+  const [selectedProjectId, setSelectedProjectId] = useState<string | null>(null);
+  const [projectServices, setProjectServices] = useState<any[]>([]);
 
   const form = useForm<BudgetFormData>({
     resolver: zodResolver(budgetSchema),
@@ -89,6 +100,16 @@ export default function BudgetsPage() {
       description: "",
       start_date: "",
       end_date: "",
+    },
+  });
+
+  const serviceForm = useForm<ServiceFormData>({
+    resolver: zodResolver(serviceSchema),
+    defaultValues: {
+      service_name: "",
+      description: "",
+      estimated_cost: "",
+      status: "planned",
     },
   });
 
@@ -315,6 +336,129 @@ export default function BudgetsPage() {
       toast({
         title: "Error",
         description: "Failed to delete project",
+        variant: "destructive",
+      });
+    }
+  };
+
+  const fetchProjectServices = async (projectId: string) => {
+    try {
+      const { data, error } = await supabase
+        .from('project_services')
+        .select('*')
+        .eq('project_id', projectId)
+        .order('created_at', { ascending: false });
+
+      if (error) throw error;
+      setProjectServices(data || []);
+    } catch (error) {
+      console.error('Error fetching services:', error);
+    }
+  };
+
+  const handleAddService = (projectId: string) => {
+    setSelectedProjectId(projectId);
+    serviceForm.reset();
+    setServiceDialogOpen(true);
+    fetchProjectServices(projectId);
+  };
+
+  const onServiceSubmit = async (data: ServiceFormData) => {
+    if (!user || !selectedProjectId) return;
+
+    try {
+      const { error } = await supabase
+        .from('project_services')
+        .insert({
+          project_id: selectedProjectId,
+          service_name: data.service_name,
+          description: data.description || null,
+          estimated_cost: Number(data.estimated_cost),
+          status: data.status,
+          created_by: user.id,
+        });
+
+      if (error) throw error;
+
+      toast({
+        title: "Success",
+        description: "Service added successfully",
+      });
+
+      serviceForm.reset();
+      fetchProjectServices(selectedProjectId);
+      fetchData();
+    } catch (error) {
+      console.error('Error adding service:', error);
+      toast({
+        title: "Error",
+        description: "Failed to add service",
+        variant: "destructive",
+      });
+    }
+  };
+
+  const handleCreateTransaction = async (service: any) => {
+    if (!user) return;
+
+    try {
+      const { error } = await supabase
+        .from('financial_transactions')
+        .insert({
+          user_id: user.id,
+          description: `${service.service_name} - ${service.description || 'Project service'}`,
+          amount: service.estimated_cost,
+          type: 'expense',
+          transaction_date: new Date().toISOString().split('T')[0],
+          project_id: service.project_id,
+          category: 'operational' as any,
+        });
+
+      if (error) throw error;
+
+      // Update service actual cost
+      await supabase
+        .from('project_services')
+        .update({ actual_cost: service.estimated_cost })
+        .eq('id', service.id);
+
+      toast({
+        title: "Success",
+        description: "Transaction created successfully",
+      });
+
+      fetchProjectServices(service.project_id);
+      fetchData();
+    } catch (error) {
+      console.error('Error creating transaction:', error);
+      toast({
+        title: "Error",
+        description: "Failed to create transaction",
+        variant: "destructive",
+      });
+    }
+  };
+
+  const handleDeleteService = async (serviceId: string, projectId: string) => {
+    try {
+      const { error } = await supabase
+        .from('project_services')
+        .delete()
+        .eq('id', serviceId);
+
+      if (error) throw error;
+
+      toast({
+        title: "Success",
+        description: "Service deleted successfully",
+      });
+
+      fetchProjectServices(projectId);
+    } catch (error) {
+      console.error('Error deleting service:', error);
+      toast({
+        title: "Error",
+        description: "Failed to delete service",
         variant: "destructive",
       });
     }
@@ -724,6 +868,14 @@ export default function BudgetsPage() {
                           <TableCell className="text-right">
                             <div className="flex justify-end gap-2">
                               <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={() => handleAddService(project.id)}
+                              >
+                                <Wrench className="h-4 w-4 mr-1" />
+                                Services
+                              </Button>
+                              <Button
                                 variant="ghost"
                                 size="icon"
                                 onClick={() => handleEditProject(project)}
@@ -764,6 +916,146 @@ export default function BudgetsPage() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      <Dialog open={serviceDialogOpen} onOpenChange={setServiceDialogOpen}>
+        <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto bg-background">
+          <DialogHeader>
+            <DialogTitle>Project Services</DialogTitle>
+            <DialogDescription>
+              Add and manage services for this project. Create transactions to track expenses.
+            </DialogDescription>
+          </DialogHeader>
+          
+          <div className="space-y-6">
+            <Form {...serviceForm}>
+              <form onSubmit={serviceForm.handleSubmit(onServiceSubmit)} className="space-y-4 border rounded-lg p-4">
+                <h3 className="font-semibold">Add New Service</h3>
+                <div className="grid grid-cols-2 gap-4">
+                  <FormField
+                    control={serviceForm.control}
+                    name="service_name"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Service Name</FormLabel>
+                        <FormControl>
+                          <Input placeholder="Web Development" {...field} />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+
+                  <FormField
+                    control={serviceForm.control}
+                    name="estimated_cost"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Estimated Cost</FormLabel>
+                        <FormControl>
+                          <Input type="number" step="0.01" placeholder="5000.00" {...field} />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                </div>
+
+                <FormField
+                  control={serviceForm.control}
+                  name="description"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Description</FormLabel>
+                      <FormControl>
+                        <Textarea placeholder="Service description" {...field} />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+
+                <FormField
+                  control={serviceForm.control}
+                  name="status"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Status</FormLabel>
+                      <Select onValueChange={field.onChange} value={field.value}>
+                        <FormControl>
+                          <SelectTrigger>
+                            <SelectValue />
+                          </SelectTrigger>
+                        </FormControl>
+                        <SelectContent className="bg-background">
+                          <SelectItem value="planned">Planned</SelectItem>
+                          <SelectItem value="in_progress">In Progress</SelectItem>
+                          <SelectItem value="completed">Completed</SelectItem>
+                        </SelectContent>
+                      </Select>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+
+                <Button type="submit">Add Service</Button>
+              </form>
+            </Form>
+
+            <div>
+              <h3 className="font-semibold mb-4">Existing Services</h3>
+              {projectServices.length === 0 ? (
+                <p className="text-muted-foreground text-center py-4">No services added yet</p>
+              ) : (
+                <div className="space-y-3">
+                  {projectServices.map((service) => (
+                    <div key={service.id} className="border rounded-lg p-4 space-y-2">
+                      <div className="flex items-start justify-between">
+                        <div className="flex-1">
+                          <div className="flex items-center gap-2">
+                            <h4 className="font-semibold">{service.service_name}</h4>
+                            <Badge variant={
+                              service.status === 'completed' ? 'default' :
+                              service.status === 'in_progress' ? 'secondary' : 'outline'
+                            }>
+                              {service.status.replace('_', ' ')}
+                            </Badge>
+                          </div>
+                          {service.description && (
+                            <p className="text-sm text-muted-foreground mt-1">{service.description}</p>
+                          )}
+                          <div className="flex gap-4 mt-2 text-sm">
+                            <span>Estimated: <strong>Rs {Number(service.estimated_cost).toLocaleString()}</strong></span>
+                            <span>Actual: <strong>Rs {Number(service.actual_cost || 0).toLocaleString()}</strong></span>
+                          </div>
+                        </div>
+                        <div className="flex gap-2">
+                          {service.actual_cost === 0 && (
+                            <Button
+                              size="sm"
+                              variant="default"
+                              onClick={() => handleCreateTransaction(service)}
+                            >
+                              <DollarSign className="h-4 w-4 mr-1" />
+                              Create Transaction
+                            </Button>
+                          )}
+                          <Button
+                            size="sm"
+                            variant="ghost"
+                            onClick={() => handleDeleteService(service.id, service.project_id)}
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </Button>
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

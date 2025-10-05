@@ -379,6 +379,53 @@ export type Database = {
         }
         Relationships: []
       }
+      project_services: {
+        Row: {
+          actual_cost: number | null
+          created_at: string
+          created_by: string
+          description: string | null
+          estimated_cost: number
+          id: string
+          project_id: string
+          service_name: string
+          status: string
+          updated_at: string
+        }
+        Insert: {
+          actual_cost?: number | null
+          created_at?: string
+          created_by: string
+          description?: string | null
+          estimated_cost?: number
+          id?: string
+          project_id: string
+          service_name: string
+          status?: string
+          updated_at?: string
+        }
+        Update: {
+          actual_cost?: number | null
+          created_at?: string
+          created_by?: string
+          description?: string | null
+          estimated_cost?: number
+          id?: string
+          project_id?: string
+          service_name?: string
+          status?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "project_services_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "projects"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       projects: {
         Row: {
           budget_limit: number | null
