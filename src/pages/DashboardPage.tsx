@@ -34,25 +34,17 @@ const DashboardPage = () => {
   useEffect(() => {
     const fetchDashboardData = async () => {
       try {
-        // Fetch financial transactions for current month
-        const currentMonth = new Date().toISOString().slice(0, 7);
-        const nextMonth = new Date(new Date().getFullYear(), new Date().getMonth() + 1, 1).toISOString().slice(0, 10);
-        
-        const { data: transactions } = await supabase
+        // Fetch all financial transactions for total income/expenses
+        const { data: allTransactions } = await supabase
           .from('financial_transactions')
           .select('*')
-          .gte('transaction_date', `${currentMonth}-01`)
-          .lt('transaction_date', nextMonth);
+          .order('transaction_date', { ascending: false });
 
-        const income = transactions?.filter(t => t.type === 'income').reduce((sum, t) => sum + Number(t.amount), 0) || 0;
-        const expenses = transactions?.filter(t => t.type === 'expense').reduce((sum, t) => sum + Number(t.amount), 0) || 0;
+        const income = allTransactions?.filter(t => t.type === 'income').reduce((sum, t) => sum + Number(t.amount), 0) || 0;
+        const expenses = allTransactions?.filter(t => t.type === 'expense').reduce((sum, t) => sum + Number(t.amount), 0) || 0;
         
         // Set recent transactions (last 5)
-        setRecentTransactions(
-          transactions?.sort((a, b) => 
-            new Date(b.transaction_date).getTime() - new Date(a.transaction_date).getTime()
-          ).slice(0, 5) || []
-        );
+        setRecentTransactions(allTransactions?.slice(0, 5) || []);
 
         // Fetch other stats based on user role
         let employeeCount = 0;
@@ -61,6 +53,9 @@ const DashboardPage = () => {
         let monthlyBudget = 0;
 
         if (userRole === 'admin' || userRole === 'finance_staff') {
+          const currentMonth = new Date().toISOString().slice(0, 7);
+          const nextMonth = new Date(new Date().getFullYear(), new Date().getMonth() + 1, 1).toISOString().slice(0, 10);
+          
           const { data: employees } = await supabase
             .from('employees')
             .select('id')
@@ -81,7 +76,7 @@ const DashboardPage = () => {
             .from('budgets')
             .select('amount')
             .gte('period_start', `${currentMonth}-01`)
-            .lt('period_end', `${new Date(new Date().getFullYear(), new Date().getMonth() + 1, 1).toISOString().slice(0, 10)}`);
+            .lt('period_end', nextMonth);
 
           employeeCount = employees?.length || 0;
           pendingInvoices = invoices?.length || 0;
@@ -164,7 +159,7 @@ const DashboardPage = () => {
             <div className="text-2xl font-bold text-green-600">
               Rs {stats.totalIncome.toLocaleString()}
             </div>
-            <p className="text-xs text-muted-foreground">This month</p>
+            <p className="text-xs text-muted-foreground">All time</p>
           </CardContent>
         </Card>
 
@@ -177,7 +172,7 @@ const DashboardPage = () => {
             <div className="text-2xl font-bold text-red-600">
               Rs {stats.totalExpenses.toLocaleString()}
             </div>
-            <p className="text-xs text-muted-foreground">This month</p>
+            <p className="text-xs text-muted-foreground">All time</p>
           </CardContent>
         </Card>
 
@@ -190,7 +185,7 @@ const DashboardPage = () => {
             <div className={`text-2xl font-bold ${netProfit >= 0 ? 'text-green-600' : 'text-red-600'}`}>
               Rs {netProfit.toLocaleString()}
             </div>
-            <p className="text-xs text-muted-foreground">This month</p>
+            <p className="text-xs text-muted-foreground">All time</p>
           </CardContent>
         </Card>
 
@@ -261,7 +256,7 @@ const DashboardPage = () => {
                     <div className={`text-sm font-semibold ${
                       transaction.type === 'income' ? 'text-green-600' : 'text-red-600'
                     }`}>
-                      {transaction.type === 'income' ? '+' : '-'}${Number(transaction.amount).toFixed(2)}
+                      {transaction.type === 'income' ? '+' : '-'}Rs {Number(transaction.amount).toFixed(2)}
                     </div>
                   </div>
                 ))}
@@ -334,7 +329,7 @@ const DashboardPage = () => {
                     </p>
                   </div>
                   <div className="text-sm font-semibold">
-                    ${Number(invoice.total_amount).toFixed(2)}
+                    Rs {Number(invoice.total_amount).toFixed(2)}
                   </div>
                 </div>
               ))}
