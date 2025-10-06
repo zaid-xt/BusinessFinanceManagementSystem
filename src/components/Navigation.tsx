@@ -11,6 +11,7 @@ import {
   BarChart3,
   LogOut,
   Settings,
+  Receipt,
 } from 'lucide-react';
 
 const Navigation = () => {
@@ -40,6 +41,12 @@ const Navigation = () => {
       name: 'Invoices',
       href: '/invoices',
       icon: FileText,
+      roles: ['admin', 'finance_staff'],
+    },
+    {
+      name: 'Quotations',
+      href: '/quotations',
+      icon: Receipt,
       roles: ['admin', 'finance_staff'],
     },
     {

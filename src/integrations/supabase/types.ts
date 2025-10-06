@@ -470,6 +470,90 @@ export type Database = {
           },
         ]
       }
+      quotations: {
+        Row: {
+          amount: number
+          client_address: string | null
+          client_email: string | null
+          client_name: string
+          client_phone: string | null
+          company_address: string | null
+          company_email: string | null
+          company_name: string
+          company_phone: string | null
+          converted_to_invoice: boolean | null
+          created_at: string
+          created_by: string
+          description: string | null
+          id: string
+          invoice_id: string | null
+          issue_date: string
+          notes: string | null
+          quotation_number: string
+          status: string
+          tax_amount: number | null
+          tax_number: string | null
+          terms: string | null
+          total_amount: number
+          updated_at: string
+          valid_until: string
+        }
+        Insert: {
+          amount: number
+          client_address?: string | null
+          client_email?: string | null
+          client_name: string
+          client_phone?: string | null
+          company_address?: string | null
+          company_email?: string | null
+          company_name: string
+          company_phone?: string | null
+          converted_to_invoice?: boolean | null
+          created_at?: string
+          created_by: string
+          description?: string | null
+          id?: string
+          invoice_id?: string | null
+          issue_date?: string
+          notes?: string | null
+          quotation_number: string
+          status?: string
+          tax_amount?: number | null
+          tax_number?: string | null
+          terms?: string | null
+          total_amount: number
+          updated_at?: string
+          valid_until: string
+        }
+        Update: {
+          amount?: number
+          client_address?: string | null
+          client_email?: string | null
+          client_name?: string
+          client_phone?: string | null
+          company_address?: string | null
+          company_email?: string | null
+          company_name?: string
+          company_phone?: string | null
+          converted_to_invoice?: boolean | null
+          created_at?: string
+          created_by?: string
+          description?: string | null
+          id?: string
+          invoice_id?: string | null
+          issue_date?: string
+          notes?: string | null
+          quotation_number?: string
+          status?: string
+          tax_amount?: number | null
+          tax_number?: string | null
+          terms?: string | null
+          total_amount?: number
+          updated_at?: string
+          valid_until?: string
+        }
+        Relationships: []
+      }
       tax_rules: {
         Row: {
           created_at: string

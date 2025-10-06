@@ -11,6 +11,7 @@ import AuthPage from "./pages/AuthPage";
 import DashboardPage from "./pages/DashboardPage";
 import TransactionsPage from "./pages/TransactionsPage";
 import InvoicesPage from "./pages/InvoicesPage";
+import QuotationsPage from "./pages/QuotationsPage";
 import BudgetsPage from "./pages/BudgetsPage";
 import PayrollPage from "./pages/PayrollPage";
 import ReportsPage from "./pages/ReportsPage";
@@ -68,7 +69,17 @@ const App = () => (
               } 
             />
             <Route 
-              path="/budgets" 
+              path="/quotations" 
+              element={
+                <ProtectedRoute requiredRole={['admin', 'finance_staff']}>
+                  <DashboardLayout>
+                    <QuotationsPage />
+                  </DashboardLayout>
+                </ProtectedRoute>
+              } 
+            />
+            <Route 
+              path="/budgets"
               element={
                 <ProtectedRoute>
                   <DashboardLayout>
