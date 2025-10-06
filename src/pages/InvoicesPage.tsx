@@ -18,18 +18,28 @@ import { format } from "date-fns";
 import { FileText, Download } from "lucide-react";
 import jsPDF from "jspdf";
 
+const lineItemSchema = z.object({
+  description: z.string().min(1, "Description is required"),
+  quantity: z.string().refine(val => !isNaN(Number(val)) && Number(val) > 0, "Quantity must be positive"),
+  rate: z.string().refine(val => !isNaN(Number(val)) && Number(val) > 0, "Rate must be positive"),
+});
+
 const invoiceSchema = z.object({
   client_name: z.string().min(1, "Client name is required").max(200),
   client_email: z.string().email("Invalid email").optional().or(z.literal("")),
   client_address: z.string().max(500).optional(),
-  description: z.string().max(1000).optional(),
-  amount: z.string().min(1, "Amount is required").refine(val => !isNaN(Number(val)) && Number(val) > 0, "Amount must be positive"),
+  company_name: z.string().min(1, "Company name is required").max(200),
+  company_address: z.string().max(500).optional(),
+  company_email: z.string().email("Invalid email").optional().or(z.literal("")),
+  company_phone: z.string().max(50).optional(),
+  tax_number: z.string().max(100).optional(),
   tax_amount: z.string().refine(val => val === "" || (!isNaN(Number(val)) && Number(val) >= 0), "Tax must be non-negative").optional(),
   issue_date: z.string().min(1, "Issue date is required"),
   due_date: z.string().min(1, "Due date is required"),
   status: z.enum(["draft", "sent", "paid", "overdue", "cancelled"]),
 });
 
+type LineItem = z.infer<typeof lineItemSchema>;
 type InvoiceFormData = z.infer<typeof invoiceSchema>;
 
 export default function InvoicesPage() {
@@ -38,6 +48,8 @@ export default function InvoicesPage() {
   const [invoices, setInvoices] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [nextInvoiceNumber, setNextInvoiceNumber] = useState("");
+  const [lineItems, setLineItems] = useState<LineItem[]>([]);
+  const [newItem, setNewItem] = useState({ description: "", quantity: "1", rate: "0" });
 
   const form = useForm<InvoiceFormData>({
     resolver: zodResolver(invoiceSchema),
@@ -45,8 +57,11 @@ export default function InvoicesPage() {
       client_name: "",
       client_email: "",
       client_address: "",
-      description: "",
-      amount: "",
+      company_name: "",
+      company_address: "",
+      company_email: "",
+      company_phone: "",
+      tax_number: "",
       tax_amount: "0",
       issue_date: new Date().toISOString().split('T')[0],
       due_date: "",
@@ -105,15 +120,42 @@ export default function InvoicesPage() {
     }
   };
 
-  const amount = form.watch("amount");
   const taxAmount = form.watch("tax_amount");
-  const calculatedTotal = (Number(amount || 0) + Number(taxAmount || 0)).toFixed(2);
+  const subtotal = lineItems.reduce((sum, item) => sum + (Number(item.quantity) * Number(item.rate)), 0);
+  const calculatedTotal = (subtotal + Number(taxAmount || 0)).toFixed(2);
+
+  const addLineItem = () => {
+    try {
+      lineItemSchema.parse(newItem);
+      setLineItems([...lineItems, newItem]);
+      setNewItem({ description: "", quantity: "1", rate: "0" });
+    } catch (error) {
+      toast({
+        title: "Error",
+        description: "Please fill in all line item fields correctly",
+        variant: "destructive",
+      });
+    }
+  };
+
+  const removeLineItem = (index: number) => {
+    setLineItems(lineItems.filter((_, i) => i !== index));
+  };
 
   const onSubmit = async (data: InvoiceFormData) => {
     if (!user) return;
 
+    if (lineItems.length === 0) {
+      toast({
+        title: "Error",
+        description: "Please add at least one line item",
+        variant: "destructive",
+      });
+      return;
+    }
+
     try {
-      const totalAmount = Number(data.amount) + Number(data.tax_amount || 0);
+      const totalAmount = subtotal + Number(data.tax_amount || 0);
 
       const { error } = await supabase
         .from('invoices')
@@ -122,8 +164,8 @@ export default function InvoicesPage() {
           client_name: data.client_name,
           client_email: data.client_email || null,
           client_address: data.client_address || null,
-          description: data.description || null,
-          amount: Number(data.amount),
+          description: JSON.stringify(lineItems),
+          amount: subtotal,
           tax_amount: Number(data.tax_amount || 0),
           total_amount: totalAmount,
           issue_date: data.issue_date,
@@ -143,13 +185,17 @@ export default function InvoicesPage() {
         client_name: "",
         client_email: "",
         client_address: "",
-        description: "",
-        amount: "",
+        company_name: "",
+        company_address: "",
+        company_email: "",
+        company_phone: "",
+        tax_number: "",
         tax_amount: "0",
         issue_date: new Date().toISOString().split('T')[0],
         due_date: "",
         status: "draft",
       });
+      setLineItems([]);
       
       fetchInvoices();
       generateNextInvoiceNumber();
@@ -176,55 +222,106 @@ export default function InvoicesPage() {
 
   const downloadInvoicePDF = (invoice: any) => {
     const doc = new jsPDF();
+    const lineItems = invoice.description ? JSON.parse(invoice.description) : [];
     
     // Header
-    doc.setFontSize(24);
-    doc.text("INVOICE", 20, 20);
-    
-    // Invoice details
-    doc.setFontSize(12);
-    doc.text(invoice.invoice_number, 20, 35);
-    doc.setFontSize(10);
-    doc.text(`Issue Date: ${format(new Date(invoice.issue_date), 'MMM dd, yyyy')}`, 20, 42);
-    doc.text(`Due Date: ${format(new Date(invoice.due_date), 'MMM dd, yyyy')}`, 20, 49);
-    doc.text(`Status: ${invoice.status.toUpperCase()}`, 20, 56);
-    
-    // Client information
-    doc.setFontSize(12);
-    doc.text("Bill To:", 20, 70);
-    doc.setFontSize(10);
-    doc.text(invoice.client_name, 20, 77);
-    if (invoice.client_email) {
-      doc.text(invoice.client_email, 20, 84);
-    }
-    if (invoice.client_address) {
-      const addressLines = doc.splitTextToSize(invoice.client_address, 80);
-      doc.text(addressLines, 20, invoice.client_email ? 91 : 84);
-    }
-    
-    // Description
-    if (invoice.description) {
-      doc.setFontSize(12);
-      doc.text("Description:", 20, 110);
-      doc.setFontSize(10);
-      const descLines = doc.splitTextToSize(invoice.description, 170);
-      doc.text(descLines, 20, 117);
-    }
-    
-    // Amount breakdown
-    const startY = invoice.description ? 140 : 120;
-    doc.setFontSize(10);
-    doc.text("Amount:", 120, startY);
-    doc.text(`Rs ${Number(invoice.amount).toFixed(2)}`, 170, startY, { align: 'right' });
-    
-    doc.text("Tax:", 120, startY + 7);
-    doc.text(`Rs ${Number(invoice.tax_amount || 0).toFixed(2)}`, 170, startY + 7, { align: 'right' });
-    
-    // Total
-    doc.setFontSize(12);
+    doc.setFontSize(20);
     doc.setFont(undefined, 'bold');
-    doc.text("Total:", 120, startY + 17);
-    doc.text(`Rs ${Number(invoice.total_amount).toFixed(2)}`, 170, startY + 17, { align: 'right' });
+    doc.text("Quotation", 20, 20);
+    
+    // Invoice number and date (right side)
+    doc.setFontSize(10);
+    doc.setFont(undefined, 'normal');
+    doc.text(`Quote No # ${invoice.invoice_number}`, 140, 20);
+    doc.text(`Date: ${format(new Date(invoice.issue_date), 'dd MMM yyyy')}`, 140, 27);
+    
+    // Two column layout - Billed By and Billed To
+    doc.setFontSize(11);
+    doc.setFont(undefined, 'bold');
+    doc.text("Billed By", 20, 40);
+    doc.text("Billed To", 110, 40);
+    
+    // Billed By details (left column)
+    doc.setFontSize(9);
+    doc.setFont(undefined, 'normal');
+    let leftY = 47;
+    doc.text("Your Company Name", 20, leftY);
+    leftY += 5;
+    if (invoice.company_address) {
+      const companyAddressLines = doc.splitTextToSize(invoice.company_address, 80);
+      doc.text(companyAddressLines, 20, leftY);
+      leftY += companyAddressLines.length * 5;
+    }
+    if (invoice.tax_number) {
+      doc.text(`Tax Number: ${invoice.tax_number}`, 20, leftY);
+      leftY += 5;
+    }
+    if (invoice.company_email) {
+      doc.text(`Email: ${invoice.company_email}`, 20, leftY);
+      leftY += 5;
+    }
+    if (invoice.company_phone) {
+      doc.text(`Phone: ${invoice.company_phone}`, 20, leftY);
+    }
+    
+    // Billed To details (right column)
+    let rightY = 47;
+    doc.text(invoice.client_name, 110, rightY);
+    rightY += 5;
+    if (invoice.client_address) {
+      const clientAddressLines = doc.splitTextToSize(invoice.client_address, 80);
+      doc.text(clientAddressLines, 110, rightY);
+      rightY += clientAddressLines.length * 5;
+    }
+    if (invoice.client_email) {
+      doc.text(`Email: ${invoice.client_email}`, 110, rightY);
+      rightY += 5;
+    }
+    
+    // Line items table
+    const tableStartY = Math.max(leftY, rightY) + 15;
+    
+    // Table header
+    doc.setFillColor(240, 240, 240);
+    doc.rect(20, tableStartY, 170, 8, 'F');
+    doc.setFontSize(9);
+    doc.setFont(undefined, 'bold');
+    doc.text("Item", 22, tableStartY + 5);
+    doc.text("Description", 35, tableStartY + 5);
+    doc.text("Qty", 140, tableStartY + 5);
+    doc.text("Rate", 155, tableStartY + 5);
+    doc.text("Amount", 175, tableStartY + 5);
+    
+    // Table rows
+    doc.setFont(undefined, 'normal');
+    let currentY = tableStartY + 13;
+    lineItems.forEach((item: LineItem, index: number) => {
+      const amount = Number(item.quantity) * Number(item.rate);
+      doc.text(`${index + 1}.`, 22, currentY);
+      const descLines = doc.splitTextToSize(item.description, 100);
+      doc.text(descLines, 35, currentY);
+      doc.text(item.quantity, 140, currentY);
+      doc.text(`ZAR ${Number(item.rate).toFixed(2)}`, 155, currentY);
+      doc.text(`ZAR ${amount.toFixed(2)}`, 175, currentY);
+      currentY += Math.max(descLines.length * 5, 7);
+    });
+    
+    // Subtotal and Total
+    currentY += 5;
+    doc.setFont(undefined, 'bold');
+    doc.text("Subtotal", 140, currentY);
+    doc.text(`ZAR ${Number(invoice.amount).toFixed(2)}`, 175, currentY);
+    
+    if (invoice.tax_amount > 0) {
+      currentY += 7;
+      doc.text("Tax", 140, currentY);
+      doc.text(`ZAR ${Number(invoice.tax_amount).toFixed(2)}`, 175, currentY);
+    }
+    
+    currentY += 7;
+    doc.setFontSize(11);
+    doc.text("TOTAL", 140, currentY);
+    doc.text(`ZAR ${Number(invoice.total_amount).toFixed(2)}`, 175, currentY);
     
     // Save
     doc.save(`${invoice.invoice_number}.pdf`);
@@ -253,29 +350,75 @@ export default function InvoicesPage() {
         <CardContent>
           <Form {...form}>
             <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <FormField
-                  control={form.control}
-                  name="client_name"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Client Name *</FormLabel>
-                      <FormControl>
-                        <Input placeholder="Acme Corporation" {...field} />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
+              {/* Company Information Section */}
+              <div className="space-y-4">
+                <h3 className="text-lg font-semibold">Company Information</h3>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <FormField
+                    control={form.control}
+                    name="company_name"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Company Name *</FormLabel>
+                        <FormControl>
+                          <Input placeholder="Your Company Ltd" {...field} />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+
+                  <FormField
+                    control={form.control}
+                    name="company_email"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Company Email</FormLabel>
+                        <FormControl>
+                          <Input type="email" placeholder="info@company.com" {...field} />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+
+                  <FormField
+                    control={form.control}
+                    name="company_phone"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Company Phone</FormLabel>
+                        <FormControl>
+                          <Input placeholder="+1 234 567 8900" {...field} />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+
+                  <FormField
+                    control={form.control}
+                    name="tax_number"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Tax Number</FormLabel>
+                        <FormControl>
+                          <Input placeholder="1234567890" {...field} />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                </div>
 
                 <FormField
                   control={form.control}
-                  name="client_email"
+                  name="company_address"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel>Client Email</FormLabel>
+                      <FormLabel>Company Address</FormLabel>
                       <FormControl>
-                        <Input type="email" placeholder="client@example.com" {...field} />
+                        <Textarea placeholder="123 Business St, City, Country" {...field} />
                       </FormControl>
                       <FormMessage />
                     </FormItem>
@@ -283,49 +426,137 @@ export default function InvoicesPage() {
                 />
               </div>
 
-              <FormField
-                control={form.control}
-                name="client_address"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Client Address</FormLabel>
-                    <FormControl>
-                      <Textarea placeholder="123 Main St, City, Country" {...field} />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
+              {/* Client Information Section */}
+              <div className="space-y-4">
+                <h3 className="text-lg font-semibold">Client Information</h3>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <FormField
+                    control={form.control}
+                    name="client_name"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Client Name *</FormLabel>
+                        <FormControl>
+                          <Input placeholder="Acme Corporation" {...field} />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
 
-              <FormField
-                control={form.control}
-                name="description"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Description</FormLabel>
-                    <FormControl>
-                      <Textarea placeholder="Services or products provided..." {...field} />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
+                  <FormField
+                    control={form.control}
+                    name="client_email"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Client Email</FormLabel>
+                        <FormControl>
+                          <Input type="email" placeholder="client@example.com" {...field} />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                </div>
 
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                 <FormField
                   control={form.control}
-                  name="amount"
+                  name="client_address"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel>Amount *</FormLabel>
+                      <FormLabel>Client Address</FormLabel>
                       <FormControl>
-                        <Input type="number" step="0.01" placeholder="0.00" {...field} />
+                        <Textarea placeholder="456 Client Ave, City, Country" {...field} />
                       </FormControl>
                       <FormMessage />
                     </FormItem>
                   )}
                 />
+              </div>
 
+              {/* Line Items Section */}
+              <div className="space-y-4">
+                <h3 className="text-lg font-semibold">Line Items</h3>
+                
+                {lineItems.length > 0 && (
+                  <div className="border rounded-lg overflow-hidden">
+                    <Table>
+                      <TableHeader>
+                        <TableRow>
+                          <TableHead className="w-12">#</TableHead>
+                          <TableHead>Description</TableHead>
+                          <TableHead className="w-24">Quantity</TableHead>
+                          <TableHead className="w-32">Rate</TableHead>
+                          <TableHead className="w-32 text-right">Amount</TableHead>
+                          <TableHead className="w-20"></TableHead>
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody>
+                        {lineItems.map((item, index) => (
+                          <TableRow key={index}>
+                            <TableCell>{index + 1}</TableCell>
+                            <TableCell>{item.description}</TableCell>
+                            <TableCell>{item.quantity}</TableCell>
+                            <TableCell>ZAR {Number(item.rate).toFixed(2)}</TableCell>
+                            <TableCell className="text-right">
+                              ZAR {(Number(item.quantity) * Number(item.rate)).toFixed(2)}
+                            </TableCell>
+                            <TableCell>
+                              <Button
+                                type="button"
+                                variant="ghost"
+                                size="sm"
+                                onClick={() => removeLineItem(index)}
+                              >
+                                Remove
+                              </Button>
+                            </TableCell>
+                          </TableRow>
+                        ))}
+                      </TableBody>
+                    </Table>
+                  </div>
+                )}
+
+                <div className="grid grid-cols-1 md:grid-cols-12 gap-4 items-end">
+                  <div className="md:col-span-6">
+                    <Label>Description *</Label>
+                    <Input
+                      placeholder="Website Design & Development"
+                      value={newItem.description}
+                      onChange={(e) => setNewItem({ ...newItem, description: e.target.value })}
+                    />
+                  </div>
+                  <div className="md:col-span-2">
+                    <Label>Quantity *</Label>
+                    <Input
+                      type="number"
+                      step="1"
+                      placeholder="1"
+                      value={newItem.quantity}
+                      onChange={(e) => setNewItem({ ...newItem, quantity: e.target.value })}
+                    />
+                  </div>
+                  <div className="md:col-span-2">
+                    <Label>Rate *</Label>
+                    <Input
+                      type="number"
+                      step="0.01"
+                      placeholder="0.00"
+                      value={newItem.rate}
+                      onChange={(e) => setNewItem({ ...newItem, rate: e.target.value })}
+                    />
+                  </div>
+                  <div className="md:col-span-2">
+                    <Button type="button" onClick={addLineItem} className="w-full">
+                      Add Item
+                    </Button>
+                  </div>
+                </div>
+              </div>
+
+              {/* Totals Section */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <FormField
                   control={form.control}
                   name="tax_amount"
@@ -341,13 +572,22 @@ export default function InvoicesPage() {
                 />
 
                 <div className="space-y-2">
-                  <Label>Total Amount</Label>
-                  <div className="h-10 flex items-center px-3 border rounded-md bg-muted font-semibold">
-                    Rs {calculatedTotal}
+                  <div className="flex justify-between text-sm">
+                    <span>Subtotal:</span>
+                    <span className="font-semibold">ZAR {subtotal.toFixed(2)}</span>
+                  </div>
+                  <div className="flex justify-between text-sm">
+                    <span>Tax:</span>
+                    <span className="font-semibold">ZAR {Number(taxAmount || 0).toFixed(2)}</span>
+                  </div>
+                  <div className="flex justify-between text-lg font-bold pt-2 border-t">
+                    <span>Total:</span>
+                    <span>ZAR {calculatedTotal}</span>
                   </div>
                 </div>
               </div>
 
+              {/* Dates and Status */}
               <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                 <FormField
                   control={form.control}
