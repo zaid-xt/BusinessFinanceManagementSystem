@@ -53,6 +53,7 @@ export default function QuotationsPage() {
   const [nextQuotationNumber, setNextQuotationNumber] = useState("");
   const [lineItems, setLineItems] = useState<LineItem[]>([]);
   const [newItem, setNewItem] = useState({ description: "", quantity: "1", rate: "0" });
+  const [companySettings, setCompanySettings] = useState<any>(null);
 
   const form = useForm<QuotationFormData>({
     resolver: zodResolver(quotationSchema),
@@ -78,7 +79,23 @@ export default function QuotationsPage() {
   useEffect(() => {
     fetchQuotations();
     generateNextQuotationNumber();
+    fetchCompanySettings();
   }, []);
+
+  const fetchCompanySettings = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('company_settings')
+        .select('*')
+        .limit(1)
+        .single();
+
+      if (error && error.code !== 'PGRST116') throw error;
+      setCompanySettings(data);
+    } catch (error) {
+      console.error('Error fetching company settings:', error);
+    }
+  };
 
   const fetchQuotations = async () => {
     try {
@@ -225,48 +242,68 @@ export default function QuotationsPage() {
     const doc = new jsPDF();
     const lineItems = quotation.description ? JSON.parse(quotation.description) : [];
     
+    let currentY = 20;
+    
+    // Logo if available
+    if (companySettings?.logo_url) {
+      try {
+        doc.addImage(companySettings.logo_url, 'PNG', 20, currentY, 30, 30);
+        currentY += 35;
+      } catch (error) {
+        console.error('Error adding logo:', error);
+      }
+    }
+    
     // Header
     doc.setFontSize(20);
     doc.setFont(undefined, 'bold');
-    doc.text("Quotation", 20, 20);
+    doc.text("Quotation", 20, currentY);
     
     // Quotation number and date (right side)
     doc.setFontSize(10);
     doc.setFont(undefined, 'normal');
-    doc.text(`Quote No # ${quotation.quotation_number}`, 140, 20);
-    doc.text(`Date: ${format(new Date(quotation.issue_date), 'dd MMM yyyy')}`, 140, 27);
+    doc.text(`Quote No # ${quotation.quotation_number}`, 140, currentY);
+    doc.text(`Date: ${format(new Date(quotation.issue_date), 'dd MMM yyyy')}`, 140, currentY + 7);
+    doc.text(`Valid Until: ${format(new Date(quotation.valid_until), 'dd MMM yyyy')}`, 140, currentY + 14);
+    
+    currentY += 25;
     
     // Two column layout - Billed By and Billed To
     doc.setFontSize(11);
     doc.setFont(undefined, 'bold');
-    doc.text("Billed By", 20, 40);
-    doc.text("Billed To", 110, 40);
+    doc.text("Billed By", 20, currentY);
+    doc.text("Billed To", 110, currentY);
     
     // Billed By details (left column)
     doc.setFontSize(9);
     doc.setFont(undefined, 'normal');
-    let leftY = 47;
-    doc.text(quotation.company_name || "Your Company Name", 20, leftY);
+    currentY += 7;
+    let leftY = currentY;
+    doc.text(companySettings?.company_name || "Your Company Name", 20, leftY);
     leftY += 5;
-    if (quotation.company_address) {
-      const companyAddressLines = doc.splitTextToSize(quotation.company_address, 80);
+    if (companySettings?.address) {
+      const companyAddressLines = doc.splitTextToSize(companySettings.address, 80);
       doc.text(companyAddressLines, 20, leftY);
       leftY += companyAddressLines.length * 5;
     }
-    if (quotation.tax_number) {
-      doc.text(`Tax Number: ${quotation.tax_number}`, 20, leftY);
+    if (companySettings?.registration_number) {
+      doc.text(`Reg: ${companySettings.registration_number}`, 20, leftY);
       leftY += 5;
     }
-    if (quotation.company_email) {
-      doc.text(`Email: ${quotation.company_email}`, 20, leftY);
+    if (companySettings?.tax_number) {
+      doc.text(`Tax: ${companySettings.tax_number}`, 20, leftY);
       leftY += 5;
     }
-    if (quotation.company_phone) {
-      doc.text(`Phone: ${quotation.company_phone}`, 20, leftY);
+    if (companySettings?.email) {
+      doc.text(`Email: ${companySettings.email}`, 20, leftY);
+      leftY += 5;
+    }
+    if (companySettings?.phone) {
+      doc.text(`Phone: ${companySettings.phone}`, 20, leftY);
     }
     
     // Billed To details (right column)
-    let rightY = 47;
+    let rightY = currentY;
     doc.text(quotation.client_name, 110, rightY);
     rightY += 5;
     if (quotation.client_address) {
@@ -298,58 +335,47 @@ export default function QuotationsPage() {
     
     // Table rows
     doc.setFont(undefined, 'normal');
-    let currentY = tableStartY + 13;
+    let tableY = tableStartY + 13;
     lineItems.forEach((item: LineItem, index: number) => {
       const amount = Number(item.quantity) * Number(item.rate);
-      doc.text(`${index + 1}.`, 22, currentY);
+      doc.text(`${index + 1}.`, 22, tableY);
       const descLines = doc.splitTextToSize(item.description, 100);
-      doc.text(descLines, 35, currentY);
-      doc.text(item.quantity, 140, currentY);
-      doc.text(`ZAR ${Number(item.rate).toFixed(2)}`, 155, currentY);
-      doc.text(`ZAR ${amount.toFixed(2)}`, 175, currentY);
-      currentY += Math.max(descLines.length * 5, 7);
+      doc.text(descLines, 35, tableY);
+      doc.text(item.quantity, 140, tableY);
+      doc.text(`ZAR ${Number(item.rate).toFixed(2)}`, 155, tableY);
+      doc.text(`ZAR ${amount.toFixed(2)}`, 175, tableY);
+      tableY += Math.max(descLines.length * 5, 7);
     });
     
     // Subtotal and Total
-    currentY += 5;
+    tableY += 5;
     doc.setFont(undefined, 'bold');
-    doc.text("Subtotal", 140, currentY);
-    doc.text(`ZAR ${Number(quotation.amount).toFixed(2)}`, 175, currentY);
+    doc.text("Subtotal", 140, tableY);
+    doc.text(`ZAR ${Number(quotation.amount).toFixed(2)}`, 175, tableY);
     
     if (quotation.tax_amount > 0) {
-      currentY += 7;
-      doc.text("Tax", 140, currentY);
-      doc.text(`ZAR ${Number(quotation.tax_amount).toFixed(2)}`, 175, currentY);
+      tableY += 7;
+      doc.text("Tax", 140, tableY);
+      doc.text(`ZAR ${Number(quotation.tax_amount).toFixed(2)}`, 175, tableY);
     }
     
-    currentY += 7;
+    tableY += 7;
     doc.setFontSize(11);
-    doc.text("TOTAL", 140, currentY);
-    doc.text(`ZAR ${Number(quotation.total_amount).toFixed(2)}`, 175, currentY);
+    doc.text("TOTAL", 140, tableY);
+    doc.text(`ZAR ${Number(quotation.total_amount).toFixed(2)}`, 175, tableY);
     
-    // Quote Validity
-    currentY += 15;
-    doc.setFontSize(10);
-    doc.setFont(undefined, 'bold');
-    doc.text("Quote Validity", 20, currentY);
-    currentY += 7;
-    doc.setFont(undefined, 'normal');
-    doc.setFontSize(9);
-    const validityText = `This quote is valid until ${format(new Date(quotation.valid_until), 'dd MMM yyyy')}.`;
-    doc.text(validityText, 20, currentY);
-    
-    // Terms and Notes
-    if (quotation.terms) {
-      currentY += 12;
+    // Terms and Conditions
+    if (companySettings?.terms_and_conditions || quotation.terms) {
+      let termsY = tableY + 12;
       doc.setFont(undefined, 'bold');
       doc.setFontSize(10);
-      doc.text("Terms & Conditions", 20, currentY);
-      currentY += 7;
+      doc.text("Terms & Conditions", 20, termsY);
+      termsY += 7;
       doc.setFont(undefined, 'normal');
       doc.setFontSize(9);
-      const termsLines = doc.splitTextToSize(quotation.terms, 170);
-      doc.text(termsLines, 20, currentY);
-      currentY += termsLines.length * 5;
+      const termsText = quotation.terms || companySettings?.terms_and_conditions;
+      const termsLines = doc.splitTextToSize(termsText, 170);
+      doc.text(termsLines, 20, termsY);
     }
     
     if (quotation.notes) {

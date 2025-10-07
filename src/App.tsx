@@ -15,6 +15,7 @@ import QuotationsPage from "./pages/QuotationsPage";
 import BudgetsPage from "./pages/BudgetsPage";
 import PayrollPage from "./pages/PayrollPage";
 import ReportsPage from "./pages/ReportsPage";
+import SettingsPage from "./pages/SettingsPage";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -104,6 +105,16 @@ const App = () => (
                 <ProtectedRoute requiredRole={['admin', 'finance_staff']}>
                   <DashboardLayout>
                     <ReportsPage />
+                  </DashboardLayout>
+                </ProtectedRoute>
+              } 
+            />
+            <Route 
+              path="/settings" 
+              element={
+                <ProtectedRoute requiredRole={['admin']}>
+                  <DashboardLayout>
+                    <SettingsPage />
                   </DashboardLayout>
                 </ProtectedRoute>
               } 

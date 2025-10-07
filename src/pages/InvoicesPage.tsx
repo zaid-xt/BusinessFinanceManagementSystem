@@ -50,6 +50,7 @@ export default function InvoicesPage() {
   const [nextInvoiceNumber, setNextInvoiceNumber] = useState("");
   const [lineItems, setLineItems] = useState<LineItem[]>([]);
   const [newItem, setNewItem] = useState({ description: "", quantity: "1", rate: "0" });
+  const [companySettings, setCompanySettings] = useState<any>(null);
 
   const form = useForm<InvoiceFormData>({
     resolver: zodResolver(invoiceSchema),
@@ -72,7 +73,23 @@ export default function InvoicesPage() {
   useEffect(() => {
     fetchInvoices();
     generateNextInvoiceNumber();
+    fetchCompanySettings();
   }, []);
+
+  const fetchCompanySettings = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('company_settings')
+        .select('*')
+        .limit(1)
+        .single();
+
+      if (error && error.code !== 'PGRST116') throw error;
+      setCompanySettings(data);
+    } catch (error) {
+      console.error('Error fetching company settings:', error);
+    }
+  };
 
   const fetchInvoices = async () => {
     try {
@@ -224,48 +241,68 @@ export default function InvoicesPage() {
     const doc = new jsPDF();
     const lineItems = invoice.description ? JSON.parse(invoice.description) : [];
     
+    let currentY = 20;
+    
+    // Logo if available
+    if (companySettings?.logo_url) {
+      try {
+        doc.addImage(companySettings.logo_url, 'PNG', 20, currentY, 30, 30);
+        currentY += 35;
+      } catch (error) {
+        console.error('Error adding logo:', error);
+      }
+    }
+    
     // Header
     doc.setFontSize(20);
     doc.setFont(undefined, 'bold');
-    doc.text("Quotation", 20, 20);
+    doc.text("Invoice", 20, currentY);
     
     // Invoice number and date (right side)
     doc.setFontSize(10);
     doc.setFont(undefined, 'normal');
-    doc.text(`Quote No # ${invoice.invoice_number}`, 140, 20);
-    doc.text(`Date: ${format(new Date(invoice.issue_date), 'dd MMM yyyy')}`, 140, 27);
+    doc.text(`Invoice No # ${invoice.invoice_number}`, 140, currentY);
+    doc.text(`Date: ${format(new Date(invoice.issue_date), 'dd MMM yyyy')}`, 140, currentY + 7);
+    doc.text(`Due: ${format(new Date(invoice.due_date), 'dd MMM yyyy')}`, 140, currentY + 14);
+    
+    currentY += 25;
     
     // Two column layout - Billed By and Billed To
     doc.setFontSize(11);
     doc.setFont(undefined, 'bold');
-    doc.text("Billed By", 20, 40);
-    doc.text("Billed To", 110, 40);
+    doc.text("Billed By", 20, currentY);
+    doc.text("Billed To", 110, currentY);
     
     // Billed By details (left column)
     doc.setFontSize(9);
     doc.setFont(undefined, 'normal');
-    let leftY = 47;
-    doc.text("Your Company Name", 20, leftY);
+    currentY += 7;
+    let leftY = currentY;
+    doc.text(companySettings?.company_name || "Your Company Name", 20, leftY);
     leftY += 5;
-    if (invoice.company_address) {
-      const companyAddressLines = doc.splitTextToSize(invoice.company_address, 80);
+    if (companySettings?.address) {
+      const companyAddressLines = doc.splitTextToSize(companySettings.address, 80);
       doc.text(companyAddressLines, 20, leftY);
       leftY += companyAddressLines.length * 5;
     }
-    if (invoice.tax_number) {
-      doc.text(`Tax Number: ${invoice.tax_number}`, 20, leftY);
+    if (companySettings?.registration_number) {
+      doc.text(`Reg: ${companySettings.registration_number}`, 20, leftY);
       leftY += 5;
     }
-    if (invoice.company_email) {
-      doc.text(`Email: ${invoice.company_email}`, 20, leftY);
+    if (companySettings?.tax_number) {
+      doc.text(`Tax: ${companySettings.tax_number}`, 20, leftY);
       leftY += 5;
     }
-    if (invoice.company_phone) {
-      doc.text(`Phone: ${invoice.company_phone}`, 20, leftY);
+    if (companySettings?.email) {
+      doc.text(`Email: ${companySettings.email}`, 20, leftY);
+      leftY += 5;
+    }
+    if (companySettings?.phone) {
+      doc.text(`Phone: ${companySettings.phone}`, 20, leftY);
     }
     
     // Billed To details (right column)
-    let rightY = 47;
+    let rightY = currentY;
     doc.text(invoice.client_name, 110, rightY);
     rightY += 5;
     if (invoice.client_address) {
@@ -294,34 +331,47 @@ export default function InvoicesPage() {
     
     // Table rows
     doc.setFont(undefined, 'normal');
-    let currentY = tableStartY + 13;
+    let tableY = tableStartY + 13;
     lineItems.forEach((item: LineItem, index: number) => {
       const amount = Number(item.quantity) * Number(item.rate);
-      doc.text(`${index + 1}.`, 22, currentY);
+      doc.text(`${index + 1}.`, 22, tableY);
       const descLines = doc.splitTextToSize(item.description, 100);
-      doc.text(descLines, 35, currentY);
-      doc.text(item.quantity, 140, currentY);
-      doc.text(`ZAR ${Number(item.rate).toFixed(2)}`, 155, currentY);
-      doc.text(`ZAR ${amount.toFixed(2)}`, 175, currentY);
-      currentY += Math.max(descLines.length * 5, 7);
+      doc.text(descLines, 35, tableY);
+      doc.text(item.quantity, 140, tableY);
+      doc.text(`ZAR ${Number(item.rate).toFixed(2)}`, 155, tableY);
+      doc.text(`ZAR ${amount.toFixed(2)}`, 175, tableY);
+      tableY += Math.max(descLines.length * 5, 7);
     });
     
     // Subtotal and Total
-    currentY += 5;
+    tableY += 5;
     doc.setFont(undefined, 'bold');
-    doc.text("Subtotal", 140, currentY);
-    doc.text(`ZAR ${Number(invoice.amount).toFixed(2)}`, 175, currentY);
+    doc.text("Subtotal", 140, tableY);
+    doc.text(`ZAR ${Number(invoice.amount).toFixed(2)}`, 175, tableY);
     
     if (invoice.tax_amount > 0) {
-      currentY += 7;
-      doc.text("Tax", 140, currentY);
-      doc.text(`ZAR ${Number(invoice.tax_amount).toFixed(2)}`, 175, currentY);
+      tableY += 7;
+      doc.text("Tax", 140, tableY);
+      doc.text(`ZAR ${Number(invoice.tax_amount).toFixed(2)}`, 175, tableY);
     }
     
-    currentY += 7;
+    tableY += 7;
     doc.setFontSize(11);
-    doc.text("TOTAL", 140, currentY);
-    doc.text(`ZAR ${Number(invoice.total_amount).toFixed(2)}`, 175, currentY);
+    doc.text("TOTAL", 140, tableY);
+    doc.text(`ZAR ${Number(invoice.total_amount).toFixed(2)}`, 175, tableY);
+    
+    // Terms and Conditions
+    if (companySettings?.terms_and_conditions) {
+      let termsY = tableY + 15;
+      doc.setFont(undefined, 'bold');
+      doc.setFontSize(10);
+      doc.text("Terms & Conditions", 20, termsY);
+      termsY += 7;
+      doc.setFont(undefined, 'normal');
+      doc.setFontSize(9);
+      const termsLines = doc.splitTextToSize(companySettings.terms_and_conditions, 170);
+      doc.text(termsLines, 20, termsY);
+    }
     
     // Save
     doc.save(`${invoice.invoice_number}.pdf`);

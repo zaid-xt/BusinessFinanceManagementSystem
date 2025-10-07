@@ -68,6 +68,48 @@ export type Database = {
           },
         ]
       }
+      company_settings: {
+        Row: {
+          address: string | null
+          company_name: string
+          created_at: string
+          email: string | null
+          id: string
+          logo_url: string | null
+          phone: string | null
+          registration_number: string | null
+          tax_number: string | null
+          terms_and_conditions: string | null
+          updated_at: string
+        }
+        Insert: {
+          address?: string | null
+          company_name: string
+          created_at?: string
+          email?: string | null
+          id?: string
+          logo_url?: string | null
+          phone?: string | null
+          registration_number?: string | null
+          tax_number?: string | null
+          terms_and_conditions?: string | null
+          updated_at?: string
+        }
+        Update: {
+          address?: string | null
+          company_name?: string
+          created_at?: string
+          email?: string | null
+          id?: string
+          logo_url?: string | null
+          phone?: string | null
+          registration_number?: string | null
+          tax_number?: string | null
+          terms_and_conditions?: string | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
       departments: {
         Row: {
           budget_limit: number | null
