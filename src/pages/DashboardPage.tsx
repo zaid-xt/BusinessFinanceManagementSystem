@@ -256,7 +256,7 @@ const DashboardPage = () => {
                     <div className={`text-sm font-semibold ${
                       transaction.type === 'income' ? 'text-green-600' : 'text-red-600'
                     }`}>
-                      {transaction.type === 'income' ? '+' : '-'}Rs {Number(transaction.amount).toFixed(2)}
+                      {transaction.type === 'income' ? '+' : '-'}R {Number(transaction.amount).toFixed(2)}
                     </div>
                   </div>
                 ))}
