@@ -789,10 +789,10 @@ export default function BudgetsPage() {
                                 {budget.department_id ? "Department" : "Project"}
                               </Badge>
                             </TableCell>
-                            <TableCell className="text-right">Rs {Number(budget.amount).toLocaleString()}</TableCell>
-                            <TableCell className="text-right text-red-600">Rs {spent.toLocaleString()}</TableCell>
+                            <TableCell className="text-right">R {Number(budget.amount).toLocaleString()}</TableCell>
+                            <TableCell className="text-right text-red-600">R {spent.toLocaleString()}</TableCell>
                             <TableCell className={`text-right ${remaining >= 0 ? 'text-green-600' : 'text-red-600'}`}>
-                              Rs {remaining.toLocaleString()}
+                              R {remaining.toLocaleString()}
                             </TableCell>
                             <TableCell className={`text-right font-semibold ${getUtilizationColor(utilization)}`}>
                               {utilization.toFixed(1)}%
@@ -1024,8 +1024,8 @@ export default function BudgetsPage() {
                             <p className="text-sm text-muted-foreground mt-1">{service.description}</p>
                           )}
                           <div className="flex gap-4 mt-2 text-sm">
-                            <span>Estimated: <strong>Rs {Number(service.estimated_cost).toLocaleString()}</strong></span>
-                            <span>Actual: <strong>Rs {Number(service.actual_cost || 0).toLocaleString()}</strong></span>
+                            <span>Estimated: <strong>R {Number(service.estimated_cost).toLocaleString()}</strong></span>
+                            <span>Actual: <strong>R {Number(service.actual_cost || 0).toLocaleString()}</strong></span>
                           </div>
                         </div>
                         <div className="flex gap-2">

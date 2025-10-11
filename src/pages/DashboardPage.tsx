@@ -157,7 +157,7 @@ const DashboardPage = () => {
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold text-green-600">
-              Rs {stats.totalIncome.toLocaleString()}
+              R {stats.totalIncome.toLocaleString()}
             </div>
             <p className="text-xs text-muted-foreground">All time</p>
           </CardContent>
@@ -170,7 +170,7 @@ const DashboardPage = () => {
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold text-red-600">
-              Rs {stats.totalExpenses.toLocaleString()}
+              R {stats.totalExpenses.toLocaleString()}
             </div>
             <p className="text-xs text-muted-foreground">All time</p>
           </CardContent>
@@ -183,7 +183,7 @@ const DashboardPage = () => {
           </CardHeader>
           <CardContent>
             <div className={`text-2xl font-bold ${netProfit >= 0 ? 'text-green-600' : 'text-red-600'}`}>
-              Rs {netProfit.toLocaleString()}
+              R {netProfit.toLocaleString()}
             </div>
             <p className="text-xs text-muted-foreground">All time</p>
           </CardContent>

@@ -586,8 +586,8 @@ const PayrollPage = () => {
                       <TableCell>{employee.first_name} {employee.last_name}</TableCell>
                       <TableCell>{employee.email}</TableCell>
                       <TableCell>{employee.position || '-'}</TableCell>
-                      <TableCell>Rs {employee.base_salary.toLocaleString()}</TableCell>
-                      <TableCell>{employee.hourly_rate ? `Rs ${employee.hourly_rate}/hr` : '-'}</TableCell>
+                      <TableCell>R {employee.base_salary.toLocaleString()}</TableCell>
+                      <TableCell>{employee.hourly_rate ? `R ${employee.hourly_rate}/hr` : '-'}</TableCell>
                       <TableCell>
                         <span className={`px-2 py-1 rounded-full text-xs ${employee.is_active ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'}`}>
                           {employee.is_active ? 'Active' : 'Inactive'}
@@ -769,7 +769,7 @@ const PayrollPage = () => {
               </CardHeader>
               <CardContent>
                 <div className="text-2xl font-bold">
-                  Rs {payrollRecords
+                  R {payrollRecords
                     .filter(p => new Date(p.pay_period_start).getMonth() === new Date().getMonth())
                     .reduce((sum, p) => sum + p.net_salary, 0)
                     .toLocaleString()}
@@ -790,7 +790,7 @@ const PayrollPage = () => {
               </CardHeader>
               <CardContent>
                 <div className="text-2xl font-bold">
-                  Rs {payrollRecords
+                  R {payrollRecords
                     .filter(p => new Date(p.pay_period_start).getMonth() === new Date().getMonth())
                     .reduce((sum, p) => sum + p.tax_deductions, 0)
                     .toLocaleString()}
@@ -829,11 +829,11 @@ const PayrollPage = () => {
                         {record.hours_worked}
                         {record.overtime_hours > 0 && ` (+${record.overtime_hours} OT)`}
                       </TableCell>
-                      <TableCell>Rs {record.gross_salary.toLocaleString()}</TableCell>
-                      <TableCell className="text-red-600">-Rs {record.tax_deductions.toLocaleString()}</TableCell>
-                      <TableCell className="text-red-600">-Rs {record.deductions.toLocaleString()}</TableCell>
-                      <TableCell className="text-green-600">+Rs {record.allowances.toLocaleString()}</TableCell>
-                      <TableCell className="font-bold">Rs {record.net_salary.toLocaleString()}</TableCell>
+                      <TableCell>R {record.gross_salary.toLocaleString()}</TableCell>
+                      <TableCell className="text-red-600">-R {record.tax_deductions.toLocaleString()}</TableCell>
+                      <TableCell className="text-red-600">-R {record.deductions.toLocaleString()}</TableCell>
+                      <TableCell className="text-green-600">+R {record.allowances.toLocaleString()}</TableCell>
+                      <TableCell className="font-bold">R {record.net_salary.toLocaleString()}</TableCell>
                     </TableRow>
                   ))}
                 </TableBody>

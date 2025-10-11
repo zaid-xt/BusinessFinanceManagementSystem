@@ -137,13 +137,13 @@ const ReportsPage = () => {
     doc.text('Summary', 14, 45);
     
     doc.setFontSize(11);
-    doc.text(`Total Income: Rs ${income.toLocaleString()}`, 14, 55);
-    doc.text(`Total Expenses: Rs ${expenses.toLocaleString()}`, 14, 62);
-    doc.text(`Profit/Loss: Rs ${profitLoss.toLocaleString()}`, 14, 69);
-    doc.text(`Total Payroll: Rs ${totalPayroll.toLocaleString()}`, 14, 76);
-    doc.text(`Total Tax Deductions: Rs ${totalTaxDeductions.toLocaleString()}`, 14, 83);
-    doc.text(`Total Invoiced: Rs ${totalInvoiced.toLocaleString()}`, 14, 90);
-    doc.text(`Paid Invoices: Rs ${paidInvoices.toLocaleString()}`, 14, 97);
+    doc.text(`Total Income: R ${income.toLocaleString()}`, 14, 55);
+    doc.text(`Total Expenses: R ${expenses.toLocaleString()}`, 14, 62);
+    doc.text(`Profit/Loss: R ${profitLoss.toLocaleString()}`, 14, 69);
+    doc.text(`Total Payroll: R ${totalPayroll.toLocaleString()}`, 14, 76);
+    doc.text(`Total Tax Deductions: R ${totalTaxDeductions.toLocaleString()}`, 14, 83);
+    doc.text(`Total Invoiced: R ${totalInvoiced.toLocaleString()}`, 14, 90);
+    doc.text(`Paid Invoices: R ${paidInvoices.toLocaleString()}`, 14, 97);
     
     doc.save(`financial-report-${format(new Date(), 'yyyy-MM-dd')}.pdf`);
     toast({
@@ -269,7 +269,7 @@ const ReportsPage = () => {
             <TrendingUp className="h-4 w-4 text-green-500" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold text-foreground">Rs {income.toLocaleString()}</div>
+            <div className="text-2xl font-bold text-foreground">R {income.toLocaleString()}</div>
             <p className="text-xs text-muted-foreground mt-1">Revenue generated</p>
           </CardContent>
         </Card>
@@ -280,7 +280,7 @@ const ReportsPage = () => {
             <TrendingDown className="h-4 w-4 text-destructive" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold text-foreground">Rs {expenses.toLocaleString()}</div>
+            <div className="text-2xl font-bold text-foreground">R {expenses.toLocaleString()}</div>
             <p className="text-xs text-muted-foreground mt-1">Total spending</p>
           </CardContent>
         </Card>
@@ -292,7 +292,7 @@ const ReportsPage = () => {
           </CardHeader>
           <CardContent>
             <div className={cn("text-2xl font-bold", profitLoss >= 0 ? "text-green-500" : "text-destructive")}>
-              Rs {profitLoss.toLocaleString()}
+              R {profitLoss.toLocaleString()}
             </div>
             <p className="text-xs text-muted-foreground mt-1">Net income</p>
           </CardContent>
@@ -304,7 +304,7 @@ const ReportsPage = () => {
             <Users className="h-4 w-4 text-primary" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold text-foreground">Rs {totalPayroll.toLocaleString()}</div>
+            <div className="text-2xl font-bold text-foreground">R {totalPayroll.toLocaleString()}</div>
             <p className="text-xs text-muted-foreground mt-1">Employee salaries</p>
           </CardContent>
         </Card>
@@ -397,15 +397,15 @@ const ReportsPage = () => {
           <CardContent className="space-y-2">
             <div className="flex justify-between">
               <span className="text-sm text-muted-foreground">Total Invoiced:</span>
-              <span className="font-medium">Rs {totalInvoiced.toLocaleString()}</span>
+              <span className="font-medium">R {totalInvoiced.toLocaleString()}</span>
             </div>
             <div className="flex justify-between">
               <span className="text-sm text-muted-foreground">Paid:</span>
-              <span className="font-medium text-green-500">Rs {paidInvoices.toLocaleString()}</span>
+              <span className="font-medium text-green-500">R {paidInvoices.toLocaleString()}</span>
             </div>
             <div className="flex justify-between">
               <span className="text-sm text-muted-foreground">Outstanding:</span>
-              <span className="font-medium text-destructive">Rs {(totalInvoiced - paidInvoices).toLocaleString()}</span>
+              <span className="font-medium text-destructive">R {(totalInvoiced - paidInvoices).toLocaleString()}</span>
             </div>
           </CardContent>
         </Card>
@@ -421,11 +421,11 @@ const ReportsPage = () => {
           <CardContent className="space-y-2">
             <div className="flex justify-between">
               <span className="text-sm text-muted-foreground">Gross Payroll:</span>
-              <span className="font-medium">Rs {(payrollRecords?.reduce((sum, p) => sum + Number(p.gross_salary), 0) || 0).toLocaleString()}</span>
+              <span className="font-medium">R {(payrollRecords?.reduce((sum, p) => sum + Number(p.gross_salary), 0) || 0).toLocaleString()}</span>
             </div>
             <div className="flex justify-between">
               <span className="text-sm text-muted-foreground">Net Payroll:</span>
-              <span className="font-medium">Rs {totalPayroll.toLocaleString()}</span>
+              <span className="font-medium">R {totalPayroll.toLocaleString()}</span>
             </div>
             <div className="flex justify-between">
               <span className="text-sm text-muted-foreground">Employees Paid:</span>
@@ -445,11 +445,11 @@ const ReportsPage = () => {
           <CardContent className="space-y-2">
             <div className="flex justify-between">
               <span className="text-sm text-muted-foreground">Total Tax Deducted:</span>
-              <span className="font-medium">Rs {totalTaxDeductions.toLocaleString()}</span>
+              <span className="font-medium">R {totalTaxDeductions.toLocaleString()}</span>
             </div>
             <div className="flex justify-between">
               <span className="text-sm text-muted-foreground">From Payroll:</span>
-              <span className="font-medium">Rs {totalTaxDeductions.toLocaleString()}</span>
+              <span className="font-medium">R {totalTaxDeductions.toLocaleString()}</span>
             </div>
             <div className="flex justify-between">
               <span className="text-sm text-muted-foreground">Avg Tax Rate:</span>
