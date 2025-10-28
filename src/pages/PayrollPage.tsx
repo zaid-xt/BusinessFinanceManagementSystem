@@ -99,6 +99,9 @@ const PayrollPage = () => {
   const [employeeDialogOpen, setEmployeeDialogOpen] = useState(false);
   const [payrollDialogOpen, setPayrollDialogOpen] = useState(false);
   const [editingEmployee, setEditingEmployee] = useState<Employee | null>(null);
+  const [selectedMonth, setSelectedMonth] = useState<string>(
+    new Date().toISOString().slice(0, 7) // YYYY-MM format
+  );
   const { toast } = useToast();
 
   const employeeForm = useForm<z.infer<typeof employeeSchema>>({
@@ -624,8 +627,22 @@ const PayrollPage = () => {
         </TabsContent>
 
         <TabsContent value="payroll" className="space-y-4">
-          <div className="flex justify-between items-center">
-            <h2 className="text-xl font-semibold">Payroll Records</h2>
+          <div className="flex justify-between items-center mb-4">
+            <div className="flex items-center gap-4">
+              <h2 className="text-xl font-semibold">Payroll Records</h2>
+              <div className="flex items-center gap-2">
+                <Label htmlFor="month-filter" className="text-sm text-muted-foreground">
+                  Month:
+                </Label>
+                <Input
+                  id="month-filter"
+                  type="month"
+                  value={selectedMonth}
+                  onChange={(e) => setSelectedMonth(e.target.value)}
+                  className="w-48"
+                />
+              </div>
+            </div>
             <Dialog open={payrollDialogOpen} onOpenChange={setPayrollDialogOpen}>
               <DialogTrigger asChild>
                 <Button>
@@ -768,13 +785,15 @@ const PayrollPage = () => {
           <div className="grid gap-4 md:grid-cols-3 mb-4">
             <Card>
               <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-sm font-medium">Total Payroll (This Month)</CardTitle>
+                <CardTitle className="text-sm font-medium">
+                  Total Payroll ({new Date(selectedMonth).toLocaleDateString('en-US', { month: 'long', year: 'numeric' })})
+                </CardTitle>
                 <DollarSign className="h-4 w-4 text-muted-foreground" />
               </CardHeader>
               <CardContent>
                 <div className="text-2xl font-bold">
                   R {payrollRecords
-                    .filter(p => new Date(p.pay_period_start).getMonth() === new Date().getMonth())
+                    .filter(p => p.pay_period_start.startsWith(selectedMonth))
                     .reduce((sum, p) => sum + p.net_salary, 0)
                     .toLocaleString()}
                 </div>
@@ -795,7 +814,7 @@ const PayrollPage = () => {
               <CardContent>
                 <div className="text-2xl font-bold">
                   R {payrollRecords
-                    .filter(p => new Date(p.pay_period_start).getMonth() === new Date().getMonth())
+                    .filter(p => p.pay_period_start.startsWith(selectedMonth))
                     .reduce((sum, p) => sum + p.tax_deductions, 0)
                     .toLocaleString()}
                 </div>
@@ -819,7 +838,9 @@ const PayrollPage = () => {
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {payrollRecords.map((record) => (
+                  {payrollRecords
+                    .filter(p => p.pay_period_start.startsWith(selectedMonth))
+                    .map((record) => (
                     <TableRow key={record.id}>
                       <TableCell className="font-medium">
                         {record.employees 
