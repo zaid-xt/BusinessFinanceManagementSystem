@@ -8,7 +8,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { useToast } from '@/hooks/use-toast';
-import { Plus, Edit, Trash2, DollarSign, Calculator } from 'lucide-react';
+import { Plus, Edit, UserX, UserCheck, DollarSign, Calculator } from 'lucide-react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
@@ -343,20 +343,23 @@ const PayrollPage = () => {
     setEmployeeDialogOpen(true);
   };
 
-  const handleDeleteEmployee = async (id: string) => {
-    if (!confirm('Are you sure you want to delete this employee?')) return;
+  const handleToggleEmployeeStatus = async (employee: Employee) => {
+    const newStatus = !employee.is_active;
+    const action = newStatus ? 'activate' : 'deactivate';
+    
+    if (!confirm(`Are you sure you want to ${action} this employee?`)) return;
 
     const { error } = await supabase
       .from('employees')
-      .delete()
-      .eq('id', id);
+      .update({ is_active: newStatus })
+      .eq('id', employee.id);
 
     if (error) {
-      toast({ title: 'Error deleting employee', description: error.message, variant: 'destructive' });
+      toast({ title: `Error ${action}ing employee`, description: error.message, variant: 'destructive' });
       return;
     }
 
-    toast({ title: 'Success', description: 'Employee deleted successfully' });
+    toast({ title: 'Success', description: `Employee ${action}d successfully` });
     fetchEmployees();
   };
 
@@ -604,10 +607,11 @@ const PayrollPage = () => {
                           </Button>
                           <Button
                             size="sm"
-                            variant="destructive"
-                            onClick={() => handleDeleteEmployee(employee.id)}
+                            variant={employee.is_active ? "destructive" : "default"}
+                            onClick={() => handleToggleEmployeeStatus(employee)}
+                            title={employee.is_active ? "Deactivate employee" : "Activate employee"}
                           >
-                            <Trash2 className="h-4 w-4" />
+                            {employee.is_active ? <UserX className="h-4 w-4" /> : <UserCheck className="h-4 w-4" />}
                           </Button>
                         </div>
                       </TableCell>
